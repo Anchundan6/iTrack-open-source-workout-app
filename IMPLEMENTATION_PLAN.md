@@ -37,9 +37,18 @@
 
 - 会话状态机 idle/active/paused/completed；"开始新训练"不覆盖未完成会话
 - 计时器时间戳化（不靠后台 interval）；刷新/锁屏/杀进程恢复测试
-- schemaVersion 封装层 + 版本化导出 + 导入校验/预览/失败回滚 + 新旧环境往返测试
+- ~~schemaVersion 封装层 + 版本化导出 + 导入校验/预览/失败回滚 + 新旧环境往返测试~~ → 导出/导入首版不做（决策 5）
 - 数据迁移测试（旧 version < 3 数据 → 新模型）
-- 验收：中断恢复旅程测试全过；损坏导入文件不清空现有数据
+- 验收：中断恢复旅程测试全过
+
+### M2 落地记录（2026-10-24）
+
+- 新增 `ActiveSession` 类型：模板快照 + startedAt + `activeMs`/`lastTickAt` 双段计时 + completedIds + logs + currentId
+- 会话状态从组件 `useState` 移入持久化 store（`session`），`sessionOpen` 为纯 UI 态、不落盘（partialize 排除）
+- 新增全局 `SessionHost`：刷新/杀进程后先弹「继续/放弃」恢复提示，不自动抢占屏幕；首页「训练进行中」卡片可随时回到会话
+- 计时：每 10s 提交一次 + `visibilitychange`/`pagehide`/`beforeunload` 提交；未提交段上限 5 分钟（`MAX_UNCOMMITTED_MS`），防止崩溃后虚报数小时
+- 移除遗留 `activeWorkout`/`isWorkoutActive`（persist 升 v6 并剥离）
+- 验收：5 个集成用例模拟"重新加载"验证会话/计时/丢弃；中断恢复真机验收待大虾执行
 
 ## M3 — 动作库
 

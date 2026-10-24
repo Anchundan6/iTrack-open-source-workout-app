@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Workout, WorkoutTemplate } from '../types/workout';
+import type { ActiveSession, Workout, WorkoutTemplate } from '../types/workout';
 import {
   baseName,
   completionFrom,
@@ -14,6 +14,10 @@ import {
   startOfWeek,
   workoutsForTemplate,
   workoutVolume,
+  buildSessionExercises,
+  commitSessionTime,
+  sessionElapsed,
+  MAX_UNCOMMITTED_MS,
 } from '../utils/workout';
 
 const tpl: WorkoutTemplate = {
@@ -187,5 +191,82 @@ describe('workoutVolume', () => {
       ],
     });
     expect(workoutVolume(w)).toBe(600);
+  });
+});
+
+const sessionAt = (lastTickAt: number, over: Partial<ActiveSession> = {}): ActiveSession => ({
+  templateId: 't1',
+  template: tpl,
+  startedAt: lastTickAt,
+  activeMs: 0,
+  lastTickAt,
+  completedIds: [],
+  logs: {},
+  ...over,
+});
+
+describe('sessionElapsed', () => {
+  it('counts the committed time plus the running segment', () => {
+    const s = sessionAt(1_000_000, { activeMs: 60_000 });
+    expect(sessionElapsed(s, 1_000_000 + 30_000)).toBe(90_000);
+  });
+
+  it('caps the uncommitted segment so a killed session cannot bank hours', () => {
+    const s = sessionAt(1_000_000, { activeMs: 60_000 });
+    // Three days later: only the cap is credited on top.
+    expect(sessionElapsed(s, 1_000_000 + 3 * 24 * 3600_000)).toBe(60_000 + MAX_UNCOMMITTED_MS);
+  });
+
+  it('never reports negative time after a clock change', () => {
+    const s = sessionAt(1_000_000, { activeMs: 60_000 });
+    expect(sessionElapsed(s, 900_000)).toBe(60_000);
+  });
+});
+
+describe('commitSessionTime', () => {
+  it('banks the running segment and keeps the elapsed total continuous', () => {
+    const s = sessionAt(1_000_000, { activeMs: 60_000 });
+    const now = 1_000_000 + 45_000;
+    const committed = commitSessionTime(s, now);
+    expect(committed.activeMs).toBe(105_000);
+    expect(committed.lastTickAt).toBe(now);
+    // No jump across the commit boundary.
+    expect(sessionElapsed(committed, now)).toBe(sessionElapsed(s, now));
+    // And it keeps accruing afterwards.
+    expect(sessionElapsed(committed, now + 10_000)).toBe(115_000);
+  });
+
+  it('is idempotent when called twice at the same instant', () => {
+    const once = commitSessionTime(sessionAt(1_000_000), 1_010_000);
+    const twice = commitSessionTime(once, 1_010_000);
+    expect(twice.activeMs).toBe(once.activeMs);
+  });
+});
+
+describe('buildSessionExercises', () => {
+  const expanded = expandTemplate(tpl);
+
+  it('attaches the logged weight and reps to the matching set', () => {
+    const out = buildSessionExercises(tpl, { 'e1-set-2': { weightKg: 60, reps: 8 } }, ['e1-set-2']);
+    const target = out.find((e) => e.id === 'e1-set-2')!;
+    expect(target.sets).toEqual([{ id: 'e1-set-2-log', reps: 8, weight: 60, completed: true }]);
+  });
+
+  it('logs a timed hold even when no numbers were typed', () => {
+    const out = buildSessionExercises(tpl, {}, ['e2-set-1']);
+    const plank = out.find((e) => e.id === 'e2-set-1')!;
+    expect(plank.sets).toEqual([{ id: 'e2-set-1-log', reps: 60, weight: 0, completed: true }]);
+    expect(plank.reps).toBe(60);
+  });
+
+  it('leaves untouched sets without a log entry', () => {
+    const out = buildSessionExercises(tpl, {}, []);
+    expect(out).toHaveLength(expanded.length);
+    expect(out.every((e) => e.sets.length === 0)).toBe(true);
+  });
+
+  it('keeps a logged set as not completed when it was unticked again', () => {
+    const out = buildSessionExercises(tpl, { 'e1-set-1': { weightKg: 50, reps: 10 } }, []);
+    expect(out.find((e) => e.id === 'e1-set-1')!.sets[0].completed).toBe(false);
   });
 });

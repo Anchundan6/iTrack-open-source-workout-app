@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Layout } from './components/Layout';
+import { SessionHost } from './components/SessionHost';
 import { Home } from './pages/Home';
 import { Workouts } from './pages/Workouts';
 import { Progress } from './pages/Progress';
@@ -78,6 +79,9 @@ function App() {
  <Route path="settings" element={<Settings />} />
  </Route>
  </Routes>
+      {/* In-progress session lives above the tabs: it survives navigation,
+          reloads and a killed process. */}
+      <SessionHost />
  </BrowserRouter>
  );
 }

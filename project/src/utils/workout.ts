@@ -1,4 +1,6 @@
-import type { Exercise, Workout, WorkoutTemplate } from '../types/workout';
+import type { ActiveSession, Exercise, SetPerformance, Workout, WorkoutTemplate } from '../types/workout';
+
+export type { SetPerformance };
 
 const SET_SUFFIX = /\s*\(set\s*\d+\)\s*$/i;
 
@@ -53,13 +55,6 @@ export function groupBySet<T extends Pick<Exercise, 'id' | 'name' | 'setNumber'>
 
 export function completionFrom(completed: number, total: number): number {
  return total > 0 ? (completed / total) * 100 : 0;
-}
-
-/** Actual numbers logged for one expanded exercise instance (one set). */
-export interface SetPerformance {
- /** Stored in kg regardless of display unit. */
- weightKg?: number;
- reps?: number;
 }
 
 /**
@@ -145,6 +140,54 @@ export function latestWorkout(workouts: Workout[]): Workout | undefined {
  (latest, w) => (!latest || new Date(w.date) > new Date(latest.date) ? w : latest),
  undefined
  );
+}
+
+// --- Active session (in-progress workout) ----------------------------------
+
+/**
+ * Upper bound on time credited for a segment that was never committed —
+ * i.e. the app was killed. A session left open for days reports a few
+ * minutes, not several hours.
+ */
+export const MAX_UNCOMMITTED_MS = 5 * 60 * 1000;
+
+/** Elapsed ms of a session, including the segment running right now. */
+export function sessionElapsed(session: ActiveSession, now = Date.now()): number {
+  const running = Math.min(Math.max(0, now - session.lastTickAt), MAX_UNCOMMITTED_MS);
+  return session.activeMs + running;
+}
+
+/** Fold the running segment into `activeMs` and re-anchor at `now`. */
+export function commitSessionTime(session: ActiveSession, now = Date.now()): ActiveSession {
+  return { ...session, activeMs: sessionElapsed(session, now), lastTickAt: now };
+}
+
+/**
+ * The routine's exercises with this session's logged numbers attached —
+ * what gets written to history when the session ends.
+ */
+export function buildSessionExercises(
+  template: WorkoutTemplate,
+  logs: Record<string, SetPerformance>,
+  completedIds: string[]
+): Exercise[] {
+  return expandTemplate(template).map((exercise) => {
+    const log = logs[exercise.id];
+    const done = completedIds.includes(exercise.id);
+    // A timed hold with no typed numbers still counts as one completed set.
+    if (!log && !(done && exercise.type === 'time')) return exercise;
+    return {
+      ...exercise,
+      sets: [
+        {
+          id: `${exercise.id}-log`,
+          reps: log?.reps ?? exercise.reps,
+          weight: log?.weightKg ?? 0,
+          completed: done,
+        },
+      ],
+    };
+  });
 }
 
 /**

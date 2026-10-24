@@ -11,7 +11,7 @@ import { computeStreak, dayKey, nextRoutine, startOfWeek } from '../utils/workou
 export function Home() {
  const { t, tp, date, weekdays, clock, duration } = useI18n();
  const navigate = useNavigate();
- const { workouts, templates, darkMode, toggleDarkMode, weeklyGoal } = useWorkoutStore();
+ const { workouts, templates, darkMode, toggleDarkMode, weeklyGoal, session, openSession } = useWorkoutStore();
 
  const today = new Date();
  const todayKey = dayKey(today);
@@ -45,6 +45,23 @@ export function Home() {
  <h1 className="mt-1 text-[44px] font-semibold leading-none tracking-[-.03em] text-gray-900 dark:text-white">
  {date(today, { day: 'numeric', month: 'long' })}
  </h1>
+
+ {/* A session recovered from storage (refresh / lock / kill). */}
+{session && (
+<button
+onClick={openSession}
+className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent-soft px-4 py-3 text-left"
+>
+<span className="min-w-0">
+<span className="cap !text-accent">{t('today.inProgress')}</span>
+<span className="block truncate text-[17px] font-semibold text-gray-900 dark:text-white">{session.template.name}</span>
+</span>
+<span className="flex flex-shrink-0 items-center gap-1.5 text-[14px] font-medium text-accent">
+<Play className="h-4 w-4 fill-current" />
+{t('today.resume')}
+</span>
+</button>
+)}
 
  {/* Next session */}
  <section className="mt-6 border-t hairline pt-4">

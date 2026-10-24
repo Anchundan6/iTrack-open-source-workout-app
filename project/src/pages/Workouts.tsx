@@ -3,16 +3,14 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronDown, ChevronUp, ClipboardList, Pencil, Play, Plus, StickyNote, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useWorkoutStore } from '../store/useWorkoutStore';
-import { ActiveWorkout, type WorkoutResult } from '../components/ActiveWorkout';
 import { RoutineEditor } from '../components/RoutineEditor';
 import { RoutineNotes } from '../components/RoutineNotes';
 import { HistoryCalendar } from '../components/HistoryCalendar';
 import { PastWorkout } from '../components/PastWorkout';
-import { WorkoutSummary } from '../components/WorkoutSummary';
 import { Dialog, IconButton, PageTitle, Tabs } from '../components/ui';
 import { useI18n } from '../i18n';
-import type { Workout, WorkoutTemplate } from '../types/workout';
-import { latestWorkout, startOfWeek, workoutsForTemplate } from '../utils/workout';
+import type { WorkoutTemplate } from '../types/workout';
+import { latestWorkout, workoutsForTemplate } from '../utils/workout';
 
 type Tab = 'routines' | 'history';
 
@@ -23,21 +21,18 @@ export function Workouts() {
  const [params, setParams] = useSearchParams();
  const tab: Tab = params.get('tab') === 'history' ? 'history' : 'routines';
 
- const { workouts, templates, routineBookmarks, deleteTemplate, addWorkout, setIsWorkoutActive } = useWorkoutStore();
+ const { workouts, templates, routineBookmarks, deleteTemplate, startSession } = useWorkoutStore();
 
- const [active, setActive] = useState<WorkoutTemplate | null>(null);
  // All routines start collapsed; tap one to see its exercises.
  const [expanded, setExpanded] = useState<string | null>(null);
  const [editor, setEditor] = useState<{ template?: WorkoutTemplate } | null>(null);
  const [notesFor, setNotesFor] = useState<WorkoutTemplate | null>(null);
  const [deleteFor, setDeleteFor] = useState<WorkoutTemplate | null>(null);
  const [openWorkoutId, setOpenWorkoutId] = useState<string | null>(null);
- const [summary, setSummary] = useState<{ workout: Workout; weekCount: number } | null>(null);
 
  const start = (template: WorkoutTemplate) => {
  setNotesFor(null);
- setActive(template);
- setIsWorkoutActive(true);
+ startSession(template);
  };
 
  // "Start" from the Today screen arrives as navigation state.
@@ -51,29 +46,6 @@ export function Workouts() {
  // Run once per navigation.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [location.state]);
-
- const finish = (template: WorkoutTemplate, result: WorkoutResult) => {
- // A session where nothing was ticked off isn't worth logging.
- if (result.completionPercentage > 0) {
- const workout: Workout = {
- id: crypto.randomUUID(),
- name: template.name,
- templateId: template.id,
- exercises: result.exercises,
- date: result.startedAt,
- duration: result.duration,
- completionPercentage: result.completionPercentage,
- completed: true,
- completedExerciseIds: result.completedExerciseIds,
- };
- const monday = startOfWeek(new Date());
- const weekCount = workouts.filter((w) => new Date(w.date) >= monday).length + 1;
- addWorkout(workout);
- setSummary({ workout, weekCount });
- }
- setActive(null);
- setIsWorkoutActive(false);
- };
 
  const setTab = (next: Tab) => setParams(next === 'history' ? { tab: 'history' } : {}, { replace: true });
 
@@ -189,8 +161,6 @@ export function Workouts() {
  <HistoryCalendar workouts={workouts} onOpen={(w) => setOpenWorkoutId(w.id)} />
  )}
 
- {active && <ActiveWorkout template={active} onFinish={(result) => finish(active, result)} />}
- {summary && <WorkoutSummary workout={summary.workout} weekCount={summary.weekCount} onClose={() => setSummary(null)} />}
 
  <RoutineEditor open={editor !== null} onClose={() => setEditor(null)} template={editor?.template} />
  <RoutineNotes template={notesFor} onClose={() => setNotesFor(null)} onStart={start} />

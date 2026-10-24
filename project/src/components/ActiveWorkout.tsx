@@ -1,88 +1,121 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Hourglass, Minus, Pause, Play, Plus, RotateCcw, Timer, X } from 'lucide-react';
-import type { Exercise, WorkoutTemplate } from '../types/workout';
+import type { ActiveSession, Exercise } from '../types/workout';
 import { ExerciseVideo } from './ExerciseVideo';
 import { RestTimer } from './RestTimer';
 import { Dialog } from './ui';
 import { useI18n } from '../i18n';
 import { useWorkoutStore } from '../store/useWorkoutStore';
 import { useUnits } from '../utils/units';
-import { baseName, completionFrom, expandTemplate, groupBySet, lastSetPerformance, setNumberOf, type SetPerformance } from '../utils/workout';
+import {
+  baseName,
+  buildSessionExercises,
+  completionFrom,
+  expandTemplate,
+  groupBySet,
+  lastSetPerformance,
+  sessionElapsed,
+  setNumberOf,
+  type SetPerformance,
+} from '../utils/workout';
 import { playEnd, playTick, unlockAudio, vibrate } from '../utils/sound';
 import { enableWorkoutWakeLock, disableWorkoutWakeLock, requestWakeLock } from '../utils/wakeLock';
 
 export interface WorkoutResult {
- exercises: Exercise[];
- completedExerciseIds: string[];
- completionPercentage: number;
- duration: number;
- startedAt: string;
+  exercises: Exercise[];
+  completedExerciseIds: string[];
+  completionPercentage: number;
+  duration: number;
+  startedAt: string;
 }
 
 interface ActiveWorkoutProps {
- template: WorkoutTemplate;
- /** Called when the user finishes — or quits, with whatever they completed. */
- onFinish: (result: WorkoutResult) => void;
+  /** The persisted session being trained. */
+  session: ActiveSession;
+  /** Called when the user finishes — or quits, with whatever they completed. */
+  onFinish: (result: WorkoutResult) => void;
 }
 
-export function ActiveWorkout({ template, onFinish }: ActiveWorkoutProps) {
- const { t, tp, clock, muscle } = useI18n();
- const workouts = useWorkoutStore((s) => s.workouts);
- const exercises = useMemo(() => expandTemplate(template), [template]);
- const groups = useMemo(() => groupBySet(exercises), [exercises]);
+/** How often the running segment is banked into the persisted session. */
+const COMMIT_INTERVAL_MS = 10_000;
 
- const startedAt = useRef(Date.now());
- const [now, setNow] = useState(Date.now());
- const [completed, setCompleted] = useState<string[]>([]);
- /** Actual weight/reps per expanded exercise id — written only on 完成本组. */
- const [logs, setLogs] = useState<Record<string, SetPerformance>>({});
- const [currentId, setCurrentId] = useState(exercises[0]?.id);
- const [openSets, setOpenSets] = useState<Record<number, boolean>>({});
- const [rest, setRest] = useState<{ nextId?: string } | null>(null);
- const [finishOpen, setFinishOpen] = useState(false);
- const [quitOpen, setQuitOpen] = useState(false);
- const currentRef = useRef<HTMLDivElement>(null);
+export function ActiveWorkout({ session, onFinish }: ActiveWorkoutProps) {
+  const { t, tp, clock, muscle } = useI18n();
+  const workouts = useWorkoutStore((s) => s.workouts);
+  const patchSession = useWorkoutStore((s) => s.patchSession);
+  const logSet = useWorkoutStore((s) => s.logSet);
+  const commitTime = useWorkoutStore((s) => s.commitSessionTime);
+  const template = session.template;
+  const exercises = useMemo(() => expandTemplate(template), [template]);
+  const groups = useMemo(() => groupBySet(exercises), [exercises]);
 
- /** Display-only prefill from the last session of this routine. */
- const lastPerf = (e: Exercise) => lastSetPerformance(workouts, template.id, baseName(e), setNumberOf(e));
+  const [now, setNow] = useState(Date.now());
+  const [openSets, setOpenSets] = useState<Record<number, boolean>>({});
+  const [rest, setRest] = useState<{ nextId?: string } | null>(null);
+  const [finishOpen, setFinishOpen] = useState(false);
+  const [quitOpen, setQuitOpen] = useState(false);
+  const currentRef = useRef<HTMLDivElement>(null);
 
- const elapsed = Math.floor((now - startedAt.current) / 1000);
- const done = completed.length;
- const total = exercises.length;
- const pct = completionFrom(done, total);
- const isDone = (id: string) => completed.includes(id);
+  const { completedIds: completed, logs } = session;
+  const currentId = session.currentId ?? exercises[0]?.id;
 
- // Clock + keep the screen on for the whole session.
- useEffect(() => {
- const tick = setInterval(() => setNow(Date.now()), 1000);
- enableWorkoutWakeLock();
- const wake = setInterval(() => requestWakeLock(), 30000);
- return () => {
- clearInterval(tick);
- clearInterval(wake);
- disableWorkoutWakeLock();
- };
- }, []);
+  /** Display-only prefill from the last session of this routine. */
+  const lastPerf = (e: Exercise) => lastSetPerformance(workouts, template.id, baseName(e), setNumberOf(e));
 
- // Android back button / browser back → ask before quitting.
- useEffect(() => {
- const onBeforeUnload = (e: BeforeUnloadEvent) => {
- e.preventDefault();
- e.returnValue = '';
- };
- const onPopState = () => {
- setQuitOpen(true);
- window.history.pushState(null, '', window.location.href);
- };
- window.history.pushState(null, '', window.location.href);
- window.addEventListener('beforeunload', onBeforeUnload);
- window.addEventListener('popstate', onPopState);
- return () => {
- window.removeEventListener('beforeunload', onBeforeUnload);
- window.removeEventListener('popstate', onPopState);
- };
- }, []);
+  const elapsed = Math.floor(sessionElapsed(session, now) / 1000);
+  const done = completed.length;
+  const total = exercises.length;
+  const pct = completionFrom(done, total);
+  const isDone = (id: string) => completed.includes(id);
+
+  // Clock + keep the screen on for the whole session.
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    enableWorkoutWakeLock();
+    const wake = setInterval(() => requestWakeLock(), 30000);
+    return () => {
+      clearInterval(tick);
+      clearInterval(wake);
+      disableWorkoutWakeLock();
+    };
+  }, []);
+
+  // Bank elapsed time regularly, whenever the tab is hidden, and on the way
+  // out — so a refresh, lock screen or kill loses at most a few seconds.
+  useEffect(() => {
+    const interval = setInterval(commitTime, COMMIT_INTERVAL_MS);
+    const commit = () => commitTime();
+    document.addEventListener('visibilitychange', commit);
+    window.addEventListener('pagehide', commit);
+    window.addEventListener('beforeunload', commit);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', commit);
+      window.removeEventListener('pagehide', commit);
+      window.removeEventListener('beforeunload', commit);
+      commit();
+    };
+  }, [commitTime]);
+
+  // Android back button / browser back → ask before quitting.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    const onPopState = () => {
+      setQuitOpen(true);
+      window.history.pushState(null, '', window.location.href);
+    };
+    window.history.pushState(null, '', window.location.href);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, []);
 
  // Keep the current exercise in view.
  useEffect(() => {
@@ -102,52 +135,37 @@ export function ActiveWorkout({ template, onFinish }: ActiveWorkoutProps) {
  [exercises]
  );
 
- const toggle = useCallback(
- (id: string) => {
- unlockAudio();
- if (completed.includes(id)) {
- setCompleted(completed.filter((c) => c !== id));
- return;
- }
- const next = [...completed, id];
- setCompleted(next);
- const nextId = nextOpenAfter(id, next);
- if (!nextId) {
- setFinishOpen(true);
- } else {
- setRest({ nextId });
- }
- },
- [completed, nextOpenAfter]
- );
+  const toggle = useCallback(
+    (id: string) => {
+      unlockAudio();
+      if (completed.includes(id)) {
+        patchSession({ completedIds: completed.filter((c) => c !== id) });
+        return;
+      }
+      const next = [...completed, id];
+      patchSession({ completedIds: next });
+      const nextId = nextOpenAfter(id, next);
+      if (!nextId) {
+        setFinishOpen(true);
+      } else {
+        setRest({ nextId });
+      }
+    },
+    [completed, nextOpenAfter, patchSession]
+  );
 
- const endRest = () => {
- if (rest?.nextId) setCurrentId(rest.nextId);
- setRest(null);
- };
+  const endRest = () => {
+    if (rest?.nextId) patchSession({ currentId: rest.nextId });
+    setRest(null);
+  };
 
- const result = (): WorkoutResult => ({
- exercises: exercises.map((e) => {
- const l = logs[e.id];
- const doneSet = completed.includes(e.id);
- if (!l && !(doneSet && e.type === 'time')) return e;
- return {
- ...e,
- sets: [
- {
- id: `${e.id}-log`,
- reps: l?.reps ?? e.reps,
- weight: l?.weightKg ?? 0,
- completed: doneSet,
- },
- ],
- };
- }),
- completedExerciseIds: completed,
- completionPercentage: pct,
- duration: elapsed,
- startedAt: new Date(startedAt.current).toISOString(),
- });
+  const result = (): WorkoutResult => ({
+    exercises: buildSessionExercises(template, logs, completed),
+    completedExerciseIds: completed,
+    completionPercentage: pct,
+    duration: elapsed,
+    startedAt: new Date(session.startedAt).toISOString(),
+  });
 
  const nextExercise = rest?.nextId ? exercises.find((e) => e.id === rest.nextId) : undefined;
 
@@ -251,7 +269,7 @@ export function ActiveWorkout({ template, onFinish }: ActiveWorkoutProps) {
  done={isDone(exercise.id)}
  onSubmit={(perf) => {
  unlockAudio();
- setLogs((l) => ({ ...l, [exercise.id]: perf }));
+ logSet(exercise.id, perf);
  if (!isDone(exercise.id)) toggle(exercise.id);
  }}
  />
@@ -260,7 +278,7 @@ export function ActiveWorkout({ template, onFinish }: ActiveWorkoutProps) {
  ) : (
  <div key={exercise.id} className="flex items-center gap-3 border-b border-gray-100 py-3 dark:border-white/[0.06]">
  <Checkbox checked={isDone(exercise.id)} onClick={() => toggle(exercise.id)} label={baseName(exercise)} />
- <button onClick={() => setCurrentId(exercise.id)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
+ <button onClick={() => patchSession({ currentId: exercise.id })} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
  <span
  className={`truncate text-[15px] ${
  isDone(exercise.id)

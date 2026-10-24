@@ -41,6 +41,35 @@ export interface WorkoutTemplate {
  numberOfSets: number; // New field to store the number of sets
 }
 
+/** Actual numbers logged for one expanded exercise instance (one set). */
+export interface SetPerformance {
+  /** Stored in kg regardless of display unit. */
+  weightKg?: number;
+  reps?: number;
+}
+
+/**
+ * A workout in progress. Kept in the persisted store so a refresh, a lock
+ * screen or a killed process never loses the session. Elapsed time is
+ * `activeMs` plus the segment running since `lastTickAt`, which lets a
+ * backgrounded or dead session avoid silently banking hours.
+ */
+export interface ActiveSession {
+  templateId: string;
+  /** Snapshot of the routine at start time — later edits can't break a session. */
+  template: WorkoutTemplate;
+  /** Epoch ms when the session started. */
+  startedAt: number;
+  /** Elapsed time already committed, in ms. */
+  activeMs: number;
+  /** Anchor of the running segment: elapsed = activeMs + (now − lastTickAt). */
+  lastTickAt: number;
+  completedIds: string[];
+  logs: Record<string, SetPerformance>;
+  /** Expanded exercise id currently on screen. */
+  currentId?: string;
+}
+
 /**
  * A Notion-style bookmark attached to a routine: either a video/link card
  * or a plain text note (e.g. "watch minute 5:17 for form").
