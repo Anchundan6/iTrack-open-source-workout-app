@@ -8,10 +8,11 @@ import { RoutineEditor } from '../components/RoutineEditor';
 import { RoutineNotes } from '../components/RoutineNotes';
 import { HistoryCalendar } from '../components/HistoryCalendar';
 import { PastWorkout } from '../components/PastWorkout';
+import { WorkoutSummary } from '../components/WorkoutSummary';
 import { Dialog, IconButton, PageTitle, Tabs } from '../components/ui';
 import { useI18n } from '../i18n';
-import type { WorkoutTemplate } from '../types/workout';
-import { latestWorkout, workoutsForTemplate } from '../utils/workout';
+import type { Workout, WorkoutTemplate } from '../types/workout';
+import { latestWorkout, startOfWeek, workoutsForTemplate } from '../utils/workout';
 
 type Tab = 'routines' | 'history';
 
@@ -31,6 +32,7 @@ export function Workouts() {
  const [notesFor, setNotesFor] = useState<WorkoutTemplate | null>(null);
  const [deleteFor, setDeleteFor] = useState<WorkoutTemplate | null>(null);
  const [openWorkoutId, setOpenWorkoutId] = useState<string | null>(null);
+ const [summary, setSummary] = useState<{ workout: Workout; weekCount: number } | null>(null);
 
  const start = (template: WorkoutTemplate) => {
  setNotesFor(null);
@@ -53,7 +55,7 @@ export function Workouts() {
  const finish = (template: WorkoutTemplate, result: WorkoutResult) => {
  // A session where nothing was ticked off isn't worth logging.
  if (result.completionPercentage > 0) {
- addWorkout({
+ const workout: Workout = {
  id: crypto.randomUUID(),
  name: template.name,
  templateId: template.id,
@@ -63,7 +65,11 @@ export function Workouts() {
  completionPercentage: result.completionPercentage,
  completed: true,
  completedExerciseIds: result.completedExerciseIds,
- });
+ };
+ const monday = startOfWeek(new Date());
+ const weekCount = workouts.filter((w) => new Date(w.date) >= monday).length + 1;
+ addWorkout(workout);
+ setSummary({ workout, weekCount });
  }
  setActive(null);
  setIsWorkoutActive(false);
@@ -184,6 +190,7 @@ export function Workouts() {
  )}
 
  {active && <ActiveWorkout template={active} onFinish={(result) => finish(active, result)} />}
+ {summary && <WorkoutSummary workout={summary.workout} weekCount={summary.weekCount} onClose={() => setSummary(null)} />}
 
  <RoutineEditor open={editor !== null} onClose={() => setEditor(null)} template={editor?.template} />
  <RoutineNotes template={notesFor} onClose={() => setNotesFor(null)} onStart={start} />

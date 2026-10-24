@@ -55,6 +55,48 @@ export function completionFrom(completed: number, total: number): number {
  return total > 0 ? (completed / total) * 100 : 0;
 }
 
+/** Actual numbers logged for one expanded exercise instance (one set). */
+export interface SetPerformance {
+ /** Stored in kg regardless of display unit. */
+ weightKg?: number;
+ reps?: number;
+}
+
+/**
+ * The most recent logged performance for one set of one exercise in a routine
+ * — used to prefill the set inputs (display only, never written back).
+ */
+export function lastSetPerformance(
+ workouts: Workout[],
+ templateId: string | undefined,
+ exerciseName: string,
+ setNumber: number
+): SetPerformance | undefined {
+ const candidates = workouts
+ .filter((w) => (templateId ? w.templateId === templateId : false))
+ .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+ for (const w of candidates) {
+ const match = w.exercises.find(
+ (e) => baseName(e) === exerciseName && setNumberOf(e) === setNumber && e.sets?.length > 0
+ );
+ if (match) {
+ const s = match.sets[0];
+ return { weightKg: s.weight, reps: s.reps };
+ }
+ }
+ return undefined;
+}
+
+/** Total training volume in kg·reps, counting completed sets only. */
+export function workoutVolume(workout: Workout): number {
+ return workout.exercises.reduce((total, e) => {
+ if (!e.sets?.length) return total;
+ const s = e.sets[0];
+ if (!s.completed || !s.weight || !s.reps || e.type !== 'reps') return total;
+ return total + s.weight * s.reps;
+ }, 0);
+}
+
 /** Local calendar day as YYYY-MM-DD (not UTC). */
 export function dayKey(value: Date | string): string {
  const d = new Date(value);

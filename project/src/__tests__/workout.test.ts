@@ -7,11 +7,13 @@ import {
   dayKey,
   expandTemplate,
   groupBySet,
+  lastSetPerformance,
   latestWorkout,
   nextRoutine,
   setNumberOf,
   startOfWeek,
   workoutsForTemplate,
+  workoutVolume,
 } from '../utils/workout';
 
 const tpl: WorkoutTemplate = {
@@ -134,5 +136,56 @@ describe('routine/history helpers', () => {
     // Both done -> the one done longest ago.
     expect(nextRoutine([tpl, legs], [newer, workoutOn('2026-10-05T10:00:00', { id: 'c', templateId: 't2', name: 'Legs' })])?.template.id).toBe('t2');
     expect(nextRoutine([tpl, legs], [newer, workoutOn('2026-10-20T10:00:00', { id: 'c', templateId: 't2', name: 'Legs' })])?.template.id).toBe('t1');
+  });
+});
+
+describe('lastSetPerformance', () => {
+  const logged: Workout = workoutOn('2026-10-20T10:00:00', {
+    templateId: 't1',
+    exercises: [
+      {
+        id: 'e1-set-1',
+        name: 'Bench Press',
+        setNumber: 1,
+        reps: 10,
+        type: 'reps',
+        targetMuscles: [],
+        sets: [{ id: 'l1', reps: 8, weight: 60, completed: true }],
+      },
+    ],
+  });
+
+  it('returns the latest logged weight/reps for the same exercise and set', () => {
+    expect(lastSetPerformance([logged], 't1', 'Bench Press', 1)).toEqual({ weightKg: 60, reps: 8 });
+  });
+
+  it('returns undefined when no history matches', () => {
+    expect(lastSetPerformance([logged], 't1', 'Squat', 1)).toBeUndefined();
+    expect(lastSetPerformance([logged], 't1', 'Bench Press', 2)).toBeUndefined();
+    expect(lastSetPerformance([logged], 'other', 'Bench Press', 1)).toBeUndefined();
+    expect(lastSetPerformance([], 't1', 'Bench Press', 1)).toBeUndefined();
+  });
+
+  it('ignores exercises without logged sets', () => {
+    const noSets = workoutOn('2026-10-22T10:00:00', {
+      templateId: 't1',
+      exercises: [{ id: 'e1-set-1', name: 'Bench Press', setNumber: 1, reps: 10, type: 'reps', targetMuscles: [], sets: [] }],
+    });
+    // Newer workout has no set logs → falls back to the older one that does.
+    expect(lastSetPerformance([noSets, logged], 't1', 'Bench Press', 1)).toEqual({ weightKg: 60, reps: 8 });
+  });
+});
+
+describe('workoutVolume', () => {
+  it('sums weight × reps over completed sets only, in kg', () => {
+    const w = workoutOn('2026-10-20T10:00:00', {
+      exercises: [
+        { id: 'a', name: 'A', reps: 10, type: 'reps', targetMuscles: [], sets: [{ id: 's1', reps: 10, weight: 60, completed: true }] },
+        { id: 'b', name: 'B', reps: 10, type: 'reps', targetMuscles: [], sets: [{ id: 's2', reps: 10, weight: 60, completed: false }] },
+        { id: 'c', name: 'C', reps: 60, type: 'time', targetMuscles: [], sets: [{ id: 's3', reps: 60, weight: 0, completed: true }] },
+        { id: 'd', name: 'D', reps: 10, type: 'reps', targetMuscles: [], sets: [] },
+      ],
+    });
+    expect(workoutVolume(w)).toBe(600);
   });
 });

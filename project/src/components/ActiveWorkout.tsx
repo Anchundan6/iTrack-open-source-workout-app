@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Hourglass, Pause, Play, RotateCcw, Timer, X } from 'lucide-react';
+import { Check, ChevronDown, Hourglass, Minus, Pause, Play, Plus, RotateCcw, Timer, X } from 'lucide-react';
 import type { Exercise, WorkoutTemplate } from '../types/workout';
 import { ExerciseVideo } from './ExerciseVideo';
 import { RestTimer } from './RestTimer';
 import { Dialog } from './ui';
 import { useI18n } from '../i18n';
 import { useWorkoutStore } from '../store/useWorkoutStore';
-import { baseName, completionFrom, expandTemplate, groupBySet } from '../utils/workout';
+import { useUnits } from '../utils/units';
+import { baseName, completionFrom, expandTemplate, groupBySet, lastSetPerformance, setNumberOf, type SetPerformance } from '../utils/workout';
 import { playEnd, playTick, unlockAudio, vibrate } from '../utils/sound';
 import { enableWorkoutWakeLock, disableWorkoutWakeLock, requestWakeLock } from '../utils/wakeLock';
 
@@ -27,18 +28,24 @@ interface ActiveWorkoutProps {
 
 export function ActiveWorkout({ template, onFinish }: ActiveWorkoutProps) {
  const { t, tp, clock, muscle } = useI18n();
+ const workouts = useWorkoutStore((s) => s.workouts);
  const exercises = useMemo(() => expandTemplate(template), [template]);
  const groups = useMemo(() => groupBySet(exercises), [exercises]);
 
  const startedAt = useRef(Date.now());
  const [now, setNow] = useState(Date.now());
  const [completed, setCompleted] = useState<string[]>([]);
+ /** Actual weight/reps per expanded exercise id — written only on 完成本组. */
+ const [logs, setLogs] = useState<Record<string, SetPerformance>>({});
  const [currentId, setCurrentId] = useState(exercises[0]?.id);
  const [openSets, setOpenSets] = useState<Record<number, boolean>>({});
  const [rest, setRest] = useState<{ nextId?: string } | null>(null);
  const [finishOpen, setFinishOpen] = useState(false);
  const [quitOpen, setQuitOpen] = useState(false);
  const currentRef = useRef<HTMLDivElement>(null);
+
+ /** Display-only prefill from the last session of this routine. */
+ const lastPerf = (e: Exercise) => lastSetPerformance(workouts, template.id, baseName(e), setNumberOf(e));
 
  const elapsed = Math.floor((now - startedAt.current) / 1000);
  const done = completed.length;
@@ -120,7 +127,22 @@ export function ActiveWorkout({ template, onFinish }: ActiveWorkoutProps) {
  };
 
  const result = (): WorkoutResult => ({
- exercises,
+ exercises: exercises.map((e) => {
+ const l = logs[e.id];
+ const doneSet = completed.includes(e.id);
+ if (!l && !(doneSet && e.type === 'time')) return e;
+ return {
+ ...e,
+ sets: [
+ {
+ id: `${e.id}-log`,
+ reps: l?.reps ?? e.reps,
+ weight: l?.weightKg ?? 0,
+ completed: doneSet,
+ },
+ ],
+ };
+ }),
  completedExerciseIds: completed,
  completionPercentage: pct,
  duration: elapsed,
@@ -218,8 +240,21 @@ export function ActiveWorkout({ template, onFinish }: ActiveWorkoutProps) {
  {exercise.description && (
  <p className="ml-10 mt-2 text-[13px] leading-snug text-gray-600 dark:text-gray-300">{exercise.description}</p>
  )}
- {exercise.type === 'time' && !isDone(exercise.id) && (
- <TimedHold key={exercise.id} seconds={exercise.reps} onDone={() => toggle(exercise.id)} />
+ {exercise.type === 'time' ? (
+ !isDone(exercise.id) && <TimedHold key={exercise.id} seconds={exercise.reps} onDone={() => toggle(exercise.id)} />
+ ) : (
+ <SetInput
+ key={exercise.id}
+ exercise={exercise}
+ initial={logs[exercise.id] ?? lastPerf(exercise)}
+ showLastHint={!logs[exercise.id]}
+ done={isDone(exercise.id)}
+ onSubmit={(perf) => {
+ unlockAudio();
+ setLogs((l) => ({ ...l, [exercise.id]: perf }));
+ if (!isDone(exercise.id)) toggle(exercise.id);
+ }}
+ />
  )}
  </div>
  ) : (
@@ -318,6 +353,124 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
  <div className="flex justify-between py-2.5">
  <span className="text-gray-500 dark:text-gray-400">{label}</span>
  <span className="font-semibold tabular-nums text-gray-900 dark:text-white">{value}</span>
+ </div>
+ );
+}
+
+/**
+ * Big-touch weight × reps inputs for the current set. Values start from the
+ * last session's numbers (display only) and are written back on submit.
+ */
+function SetInput({
+ exercise,
+ initial,
+ showLastHint,
+ done,
+ onSubmit,
+}: {
+ exercise: Exercise;
+ initial: SetPerformance | undefined;
+ /** True when `initial` comes from last session rather than this one. */
+ showLastHint: boolean;
+ done: boolean;
+ onSubmit: (perf: SetPerformance) => void;
+}) {
+ const { t } = useI18n();
+ const { unit, fromKg, toKg } = useUnits();
+ const [weight, setWeight] = useState(initial?.weightKg != null && initial.weightKg > 0 ? String(fromKg(initial.weightKg)) : '');
+ const [reps, setReps] = useState(String(initial?.reps ?? exercise.reps));
+
+ const weightStep = unit === 'kg' ? 2.5 : 5;
+ const stepWeight = (dir: 1 | -1) => {
+ const v = Math.max(0, (parseFloat(weight) || 0) + dir * weightStep);
+ setWeight(String(Math.round(v * 10) / 10));
+ };
+ const stepReps = (dir: 1 | -1) => setReps(String(Math.max(0, (parseInt(reps) || 0) + dir)));
+
+ const submit = () => {
+ const w = parseFloat(weight);
+ onSubmit({
+ weightKg: Number.isFinite(w) && w > 0 ? toKg(w) : undefined,
+ reps: Math.max(0, parseInt(reps) || 0),
+ });
+ };
+
+ return (
+ <div className="mt-4">
+ {showLastHint && initial?.weightKg != null && initial.weightKg > 0 && (
+ <p className="text-[12px] tabular-nums text-gray-400 dark:text-gray-500">
+ {t('session.lastTime', { weight: `${fromKg(initial.weightKg)} ${unit}`, reps: initial.reps ?? exercise.reps })}
+ </p>
+ )}
+ <div className="mt-2 grid grid-cols-2 gap-3">
+ <Stepper
+ label={`${t('session.weight')} (${unit})`}
+ value={weight}
+ onChange={setWeight}
+ onStep={stepWeight}
+ placeholder="BW"
+ inputMode="decimal"
+ />
+ <Stepper label={t('session.repsLabel')} value={reps} onChange={setReps} onStep={stepReps} inputMode="numeric" />
+ </div>
+ <button
+ onClick={submit}
+ className={`mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-[17px] font-semibold transition-colors ${
+ done ? 'pill-secondary' : 'pill-primary'
+ }`}
+ >
+ <Check className="h-5 w-5" strokeWidth={2.5} />
+ {done ? t('session.updateSet') : t('session.doneSet')}
+ </button>
+ </div>
+ );
+}
+
+/** Large-touch +/- stepper around an editable numeric field. */
+function Stepper({
+ label,
+ value,
+ onChange,
+ onStep,
+ placeholder,
+ inputMode,
+}: {
+ label: string;
+ value: string;
+ onChange: (v: string) => void;
+ onStep: (dir: 1 | -1) => void;
+ placeholder?: string;
+ inputMode: 'decimal' | 'numeric';
+}) {
+ return (
+ <div>
+ <p className="cap mb-1.5">{label}</p>
+ <div className="flex items-center gap-1.5">
+ <button
+ type="button"
+ aria-label={`− ${label}`}
+ onClick={() => onStep(-1)}
+ className="flex h-12 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 active:bg-gray-100 dark:border-white/10 dark:text-gray-200 dark:active:bg-white/[0.06]"
+ >
+ <Minus className="h-5 w-5" strokeWidth={2} />
+ </button>
+ <input
+ value={value}
+ onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ''))}
+ inputMode={inputMode}
+ placeholder={placeholder}
+ aria-label={label}
+ className="h-12 min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent text-center text-[22px] font-semibold tabular-nums text-gray-900 focus:border-accent focus:outline-none dark:border-white/10 dark:text-white"
+ />
+ <button
+ type="button"
+ aria-label={`+ ${label}`}
+ onClick={() => onStep(1)}
+ className="flex h-12 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 active:bg-gray-100 dark:border-white/10 dark:text-gray-200 dark:active:bg-white/[0.06]"
+ >
+ <Plus className="h-5 w-5" strokeWidth={2} />
+ </button>
+ </div>
  </div>
  );
 }

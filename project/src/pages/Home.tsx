@@ -11,7 +11,7 @@ import { computeStreak, dayKey, nextRoutine, startOfWeek } from '../utils/workou
 export function Home() {
  const { t, tp, date, weekdays, clock, duration } = useI18n();
  const navigate = useNavigate();
- const { workouts, templates, darkMode, toggleDarkMode } = useWorkoutStore();
+ const { workouts, templates, darkMode, toggleDarkMode, weeklyGoal } = useWorkoutStore();
 
  const today = new Date();
  const todayKey = dayKey(today);
@@ -101,7 +101,7 @@ export function Home() {
  <div className="flex items-baseline justify-between gap-3">
  <p className="cap">{t('today.thisWeek')}</p>
  <span className="text-[12px] text-gray-400 dark:text-gray-500">
- {tp('today.sessions', sessionsThisWeek)}
+ {t('today.weekProgress', { done: sessionsThisWeek, goal: weeklyGoal })}
  {streak > 0 ? ` · ${tp('today.streak', streak)}` : ''}
  </span>
  </div>

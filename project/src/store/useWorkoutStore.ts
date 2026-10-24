@@ -29,6 +29,8 @@ interface WorkoutStore {
  restSound: RestSound;
  /** Vibrate when a rest period ends. */
  restVibrate: boolean;
+ /** Weekly check-in goal (sessions per week). */
+ weeklyGoal: number;
  addWorkout: (workout: Workout) => void;
  updateWorkout: (workout: Workout) => void;
  deleteWorkout: (id: string) => void;
@@ -45,6 +47,7 @@ interface WorkoutStore {
  setWeightUnit: (unit: WeightUnit) => void;
  setRestSound: (sound: RestSound) => void;
  setRestVibrate: (vibrate: boolean) => void;
+ setWeeklyGoal: (goal: number) => void;
 }
 
 export const useWorkoutStore = create<WorkoutStore>()(
@@ -65,6 +68,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
  weightUnit: 'kg',
  restSound: 'beep',
  restVibrate: true,
+ weeklyGoal: 3,
  addWorkout: (workout) =>
  set((state) => ({ workouts: [...state.workouts, workout] })),
  updateWorkout: (workout) =>
@@ -126,10 +130,11 @@ export const useWorkoutStore = create<WorkoutStore>()(
  setWeightUnit: (weightUnit) => set({ weightUnit }),
  setRestSound: (restSound) => set({ restSound }),
  setRestVibrate: (restVibrate) => set({ restVibrate }),
+ setWeeklyGoal: (weeklyGoal) => set({ weeklyGoal: Math.max(1, Math.min(14, Math.round(weeklyGoal))) }),
  }),
  {
  name: 'workout-storage',
- version: 4,
+ version: 5,
  migrate: (persisted) => {
  const state = (persisted ?? {}) as Record<string, unknown>;
  // v4: AI coach, cloud sync, body-weight log and user profile were
@@ -142,6 +147,8 @@ export const useWorkoutStore = create<WorkoutStore>()(
  delete state.userProfile;
  delete state.weightLog;
  delete state.autoBackup;
+ // v5: weekly check-in goal, default 3 sessions/week.
+ if (typeof state.weeklyGoal !== 'number') state.weeklyGoal = 3;
  return state as unknown as WorkoutStore;
  },
  }
