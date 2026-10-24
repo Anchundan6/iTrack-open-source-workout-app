@@ -1,0 +1,13 @@
+{
+  
+  "id": "fittrack-workout-tracker",
+  "name": "iTrack workout tracker",
+  "short_name": "iTrack",
+  "description": "Track and monitor your workout progress with iTrack",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+   "orientation": "portrait",
+  "scope": "/"
+}
