@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import { useWorkoutStore } from '../store/useWorkoutStore';
 import { en } from './en';
-import { it } from './it';
+import { zh } from './zh';
 
-export type Lang = 'en' | 'it';
+export type Lang = 'zh' | 'en';
 export type LanguagePref = 'system' | Lang;
 
-const dictionaries: Record<Lang, typeof en> = { en, it };
+const dictionaries: Record<Lang, typeof en> = { zh, en };
 
 // Dot-separated paths to every string in the English dictionary.
 type Leaves<T, P extends string = ''> = {
@@ -19,7 +19,8 @@ export type Vars = Record<string, string | number>;
 
 export function systemLang(): Lang {
   const nav = typeof navigator !== 'undefined' ? navigator.language : '';
-  return nav?.toLowerCase().startsWith('it') ? 'it' : 'en';
+  // 中文优先：非中文系统回退英文。
+  return nav?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 }
 
 export function resolveLang(pref: LanguagePref | undefined): Lang {
@@ -38,7 +39,7 @@ function safeLocale(tag: string | undefined, fallback: string): string {
 
 /** BCP 47 locale used for dates and numbers. */
 export function localeFor(lang: Lang): string {
-  if (lang === 'it') return 'it-IT';
+  if (lang === 'zh') return 'zh-CN';
   const nav = typeof navigator !== 'undefined' ? navigator.language : '';
   // Keep the user's English variant (en-US, en-GB…); otherwise day-first English.
   return nav?.toLowerCase().startsWith('en') ? safeLocale(nav, 'en-GB') : 'en-GB';

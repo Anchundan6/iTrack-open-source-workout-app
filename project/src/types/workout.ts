@@ -1,44 +1,44 @@
 export interface Exercise {
-  id: string;
-  name: string;
-  sets: Set[];
-  reps: number;
-  type: 'reps' | 'time';
-  videoUrl?: string;
-  targetMuscles: string[];
-  description?: string;
-  /** Which round of the routine this copy belongs to (1-based). Older workouts
-   *  encode it in the id (`<id>-set-N`) and name (`Name (Set N)`) instead. */
-  setNumber?: number;
+ id: string;
+ name: string;
+ sets: Set[];
+ reps: number;
+ type: 'reps' | 'time';
+ videoUrl?: string;
+ targetMuscles: string[];
+ description?: string;
+ /** Which round of the routine this copy belongs to (1-based). Older workouts
+ * encode it in the id (`<id>-set-N`) and name (`Name (Set N)`) instead. */
+ setNumber?: number;
 }
 
 export interface Set {
-  id: string;
-  reps: number;
-  weight: number;
-  completed: boolean;
+ id: string;
+ reps: number;
+ weight: number;
+ completed: boolean;
 }
 
 export interface Workout {
-  id: string;
-  name: string;
-  exercises: Exercise[];
-  date: string;
-  duration: number;
-  completionPercentage: number;
-  completed: boolean;
-  /** Ids of the exercises ticked off during the session. Missing on workouts
-   *  logged before per-exercise tracking existed. */
-  completedExerciseIds?: string[];
-  /** The routine this session was started from, when known. */
-  templateId?: string;
+ id: string;
+ name: string;
+ exercises: Exercise[];
+ date: string;
+ duration: number;
+ completionPercentage: number;
+ completed: boolean;
+ /** Ids of the exercises ticked off during the session. Missing on workouts
+ * logged before per-exercise tracking existed. */
+ completedExerciseIds?: string[];
+ /** The routine this session was started from, when known. */
+ templateId?: string;
 }
 
 export interface WorkoutTemplate {
-  id: string;
-  name: string;
-  exercises: Omit<Exercise, 'sets'>[];
-  numberOfSets: number; // New field to store the number of sets
+ id: string;
+ name: string;
+ exercises: Omit<Exercise, 'sets'>[];
+ numberOfSets: number; // New field to store the number of sets
 }
 
 /**
@@ -46,13 +46,13 @@ export interface WorkoutTemplate {
  * or a plain text note (e.g. "watch minute 5:17 for form").
  */
 export interface RoutineBookmark {
-  id: string;
-  type: 'video' | 'note';
-  /** For 'video': the URL. For 'note': the note text. */
-  content: string;
-  /** Link metadata fetched best-effort when the bookmark is added. */
-  title?: string;
-  author?: string;
-  createdAt: string;
+ id: string;
+ type: 'video' | 'note';
+ /** For 'video': the URL. For 'note': the note text. */
+ content: string;
+ /** Link metadata fetched best-effort when the bookmark is added. */
+ title?: string;
+ author?: string;
+ createdAt: string;
 }
 

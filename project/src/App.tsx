@@ -13,73 +13,73 @@ import { useI18n } from './i18n';
 import { unlockAudio } from './utils/sound';
 
 function App() {
-  const { notificationSettings, darkMode } = useWorkoutStore();
-  const { lang } = useI18n();
+ const { notificationSettings, darkMode } = useWorkoutStore();
+ const { lang } = useI18n();
 
-  useEffect(() => {
-    document.documentElement.lang = lang;
-  }, [lang]);
+ useEffect(() => {
+ document.documentElement.lang = lang;
+ }, [lang]);
 
-  // Audio starts suspended until a user gesture; unlock it on the first tap so
-  // the rest-timer beep can play later on its own.
-  useEffect(() => {
-    const unlock = () => unlockAudio();
-    window.addEventListener('pointerdown', unlock, { once: true });
-    return () => window.removeEventListener('pointerdown', unlock);
-  }, []);
+ // Audio starts suspended until a user gesture; unlock it on the first tap so
+ // the rest-timer beep can play later on its own.
+ useEffect(() => {
+ const unlock = () => unlockAudio();
+ window.addEventListener('pointerdown', unlock, { once: true });
+ return () => window.removeEventListener('pointerdown', unlock);
+ }, []);
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
+ useEffect(() => {
+ if (darkMode) {
+ document.documentElement.classList.add('dark');
+ } else {
+ document.documentElement.classList.remove('dark');
+ }
+ }, [darkMode]);
 
-  useEffect(() => {
-    // Request wake lock when app starts
-    requestWakeLock();
+ useEffect(() => {
+ // Request wake lock when app starts
+ requestWakeLock();
 
-    // Initialize notifications
-    notificationManager.init();
+ // Initialize notifications
+ notificationManager.init();
 
-    // Release wake lock when app is unmounted
-    return () => {
-      releaseWakeLock();
-    };
-  }, []);
+ // Release wake lock when app is unmounted
+ return () => {
+ releaseWakeLock();
+ };
+ }, []);
 
-  // Re-schedule notifications when settings (or their language) change
-  useEffect(() => {
-    notificationManager.schedule(notificationSettings);
-  }, [notificationSettings, lang]);
+ // Re-schedule notifications when settings (or their language) change
+ useEffect(() => {
+ notificationManager.schedule(notificationSettings);
+ }, [notificationSettings, lang]);
 
-  return (
-    <BrowserRouter future={{ 
-      v7_startTransition: true,
-      v7_relativeSplatPath: true 
-    }}>
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            borderRadius: '999px',
-            background: darkMode ? '#f9fafb' : '#111827',
-            color: darkMode ? '#111827' : '#f9fafb',
-            fontSize: '14px',
-          },
-        }}
-      />
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="workouts" element={<Workouts />} />
-          <Route path="progress" element={<Progress />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
+ return (
+ <BrowserRouter future={{ 
+ v7_startTransition: true,
+ v7_relativeSplatPath: true 
+ }}>
+ <Toaster
+ position="top-center"
+ toastOptions={{
+ style: {
+ borderRadius: '999px',
+ background: darkMode ? '#f9fafb' : '#111827',
+ color: darkMode ? '#111827' : '#f9fafb',
+ fontSize: '14px',
+ },
+ }}
+ />
+ <Routes>
+ <Route path="/" element={<Layout />}>
+ <Route index element={<Home />} />
+ <Route path="workouts" element={<Workouts />} />
+ <Route path="progress" element={<Progress />} />
+ <Route path="settings" element={<Settings />} />
+ </Route>
+ </Routes>
+ </BrowserRouter>
+ );
 }
 
 export default App;

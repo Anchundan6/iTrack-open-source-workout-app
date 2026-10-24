@@ -6,6 +6,13 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      colors: {
+        // Monochrome semantic tokens — values come from CSS vars in index.css,
+        // so `accent` is near-black in light mode and near-white in dark mode.
+        accent: 'rgb(var(--accent) / <alpha-value>)',
+        'accent-contrast': 'rgb(var(--accent-contrast) / <alpha-value>)',
+        'accent-soft': 'rgb(var(--accent-soft) / <alpha-value>)',
+      },
       fontFamily: {
         sans: ['Inter Variable', 'Inter', ...defaultTheme.fontFamily.sans],
       },
