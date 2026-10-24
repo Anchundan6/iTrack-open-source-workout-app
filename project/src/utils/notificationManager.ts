@@ -29,7 +29,7 @@ export const notificationManager = {
         // Clean up old channel if it exists
         try {
           await LocalNotifications.deleteChannel({ id: 'workout_reminders' });
-        } catch (e) {
+        } catch {
           // Ignore error if channel doesn't exist
         }
       }

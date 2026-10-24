@@ -14,6 +14,16 @@ type NavigatorWithWakeLock = Navigator & {
 
 let wakeLockSentinel: WakeLockSentinel | null = null;
 
+interface WorkoutWakeLockListeners {
+  handleFocus: () => void;
+  handleBlur: () => void;
+  handlePageShow: (event: PageTransitionEvent) => void;
+  handleOrientationChange: () => void;
+  handleResume: () => void;
+}
+
+let workoutWakeLockListeners: WorkoutWakeLockListeners | null = null;
+
 // Function to request a wake lock to prevent screen from turning off
 export const requestWakeLock = async (): Promise<void> => {
   try {
@@ -144,12 +154,12 @@ export const enableWorkoutWakeLock = async (): Promise<void> => {
   }
   
   // Store references to remove later
-  (window as any).__workoutWakeLockListeners = { 
-    handleFocus, 
-    handleBlur, 
-    handlePageShow, 
+  workoutWakeLockListeners = {
+    handleFocus,
+    handleBlur,
+    handlePageShow,
     handleOrientationChange,
-    handleResume 
+    handleResume
   };
 };
 
@@ -158,19 +168,19 @@ export const disableWorkoutWakeLock = async (): Promise<void> => {
   console.log('Disabling workout wake lock');
   
   // Remove workout-specific listeners
-  const listeners = (window as any).__workoutWakeLockListeners;
+  const listeners = workoutWakeLockListeners;
   if (listeners) {
     window.removeEventListener('focus', listeners.handleFocus);
     window.removeEventListener('blur', listeners.handleBlur);
     window.removeEventListener('pageshow', listeners.handlePageShow);
     window.removeEventListener('orientationchange', listeners.handleOrientationChange);
-    
+
     // For Capacitor/Cordova apps
     if ('Capacitor' in window && listeners.handleResume) {
       document.removeEventListener('resume', listeners.handleResume);
     }
-    
-    delete (window as any).__workoutWakeLockListeners;
+
+    workoutWakeLockListeners = null;
   }
   
   // Keep general wake lock for the app, but could release if needed

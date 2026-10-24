@@ -162,6 +162,6 @@ Contributions are welcome:
 
 ## License
 
-Licensed under the Apache License 2.0 — see [`LICENSE`](./LICENSE) for details.
+Licensed under the MIT License — see [`LICENSE`](./LICENSE) for details. (An earlier revision of this README incorrectly stated Apache 2.0; the `LICENSE` file and GitHub's license detection both say MIT, which is the authoritative text.)
 
 The body outlines in the "Muscles worked" map come from [MuscleMap](https://github.com/melihcolpan/MuscleMap) by Melih Colpan, used under the MIT License (notice in [`project/src/components/bodyPaths.ts`](./project/src/components/bodyPaths.ts)).

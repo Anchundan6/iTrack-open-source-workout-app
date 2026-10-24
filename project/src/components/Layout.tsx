@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Dumbbell, Home, LineChart, Settings, Sparkles } from 'lucide-react';
+import { Dumbbell, Home, LineChart, Settings } from 'lucide-react';
 import { useI18n } from '../i18n';
 
 export function Layout() {
@@ -15,7 +15,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-white transition-colors dark:bg-gray-950">
-      {/* Wide screens: slim top bar. Coach sits here; on phones it opens from Today. */}
+      {/* Wide screens: slim top bar. */}
       <nav className="sticky top-0 z-40 hidden border-b hairline bg-white/90 backdrop-blur dark:bg-gray-950/90 md:block">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-5">
           <NavLink to="/" className="flex items-center gap-2">
@@ -25,7 +25,7 @@ export function Layout() {
             <span className="font-semibold tracking-tight text-gray-900 dark:text-white">iTrack</span>
           </NavLink>
           <div className="flex items-center gap-1">
-            {[...tabs.slice(0, 3), { to: '/coach', icon: Sparkles, label: t('nav.coach') }, tabs[3]].map((tab) => (
+            {tabs.map((tab) => (
               <TopLink key={tab.to} to={tab.to}>
                 {tab.label}
               </TopLink>

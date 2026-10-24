@@ -8,7 +8,6 @@ import { RoutineEditor } from '../components/RoutineEditor';
 import { RoutineNotes } from '../components/RoutineNotes';
 import { HistoryCalendar } from '../components/HistoryCalendar';
 import { PastWorkout } from '../components/PastWorkout';
-import { LogWeightSheet } from '../components/LogWeightSheet';
 import { Dialog, IconButton, PageTitle, Tabs } from '../components/ui';
 import { useI18n } from '../i18n';
 import type { WorkoutTemplate } from '../types/workout';
@@ -32,7 +31,6 @@ export function Workouts() {
   const [notesFor, setNotesFor] = useState<WorkoutTemplate | null>(null);
   const [deleteFor, setDeleteFor] = useState<WorkoutTemplate | null>(null);
   const [openWorkoutId, setOpenWorkoutId] = useState<string | null>(null);
-  const [weightPrompt, setWeightPrompt] = useState(false);
 
   const start = (template: WorkoutTemplate) => {
     setNotesFor(null);
@@ -66,7 +64,6 @@ export function Workouts() {
         completed: true,
         completedExerciseIds: result.completedExerciseIds,
       });
-      setWeightPrompt(true);
     }
     setActive(null);
     setIsWorkoutActive(false);
@@ -218,8 +215,6 @@ export function Workouts() {
       >
         {t('workouts.deleteBody', { name: deleteFor?.name ?? '' })}
       </Dialog>
-
-      <LogWeightSheet open={weightPrompt} onClose={() => setWeightPrompt(false)} title={t('weight.promptTitle')} subtitle={t('weight.promptSubtitle')} />
     </div>
   );
 }

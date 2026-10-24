@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Activity, ChevronRight, StickyNote, Trash2, Trophy } from 'lucide-react';
+import { Activity, ChevronRight, StickyNote, Trophy } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useWorkoutStore } from '../store/useWorkoutStore';
 import { PageTitle } from '../components/ui';
 import { RoutineNotes } from '../components/RoutineNotes';
-import { LogWeightSheet } from '../components/LogWeightSheet';
 import { useI18n } from '../i18n';
-import { useUnits } from '../utils/units';
 import type { Workout, WorkoutTemplate } from '../types/workout';
-import { computeStreak, dayKey, latestWorkout, startOfWeek, workoutsForTemplate } from '../utils/workout';
+import { computeStreak, latestWorkout, startOfWeek, workoutsForTemplate } from '../utils/workout';
 
 /** Latest result per routine name within a period, averaged. */
 function averageLatestCompletion(list: Workout[]) {
@@ -185,7 +183,6 @@ export function Progress() {
       )}
 
       <TrainingPlan />
-      <BodyWeight />
     </div>
   );
 }
@@ -281,129 +278,5 @@ function ResultBar({ label, value, barClass }: { label: string; value: number; b
       </div>
       <span className="text-right text-[13px] font-semibold tabular-nums text-gray-900 dark:text-white">{value}%</span>
     </div>
-  );
-}
-
-/** Body-weight log: current value, quick log, trend and recent entries. */
-function BodyWeight() {
-  const { t, date, number } = useI18n();
-  const { weightLog, addWeightEntry, deleteWeightEntry } = useWorkoutStore();
-  const { unit, fromKg, toKg, formatValue } = useUnits();
-  const colors = useChartColors();
-  const [value, setValue] = useState('');
-  const [sheetOpen, setSheetOpen] = useState(false);
-
-  const latest = weightLog[weightLog.length - 1];
-  const previous = weightLog[weightLog.length - 2];
-  const first = weightLog[0];
-  const parsed = parseFloat(value.replace(',', '.'));
-  const kg = Number.isNaN(parsed) ? NaN : toKg(parsed);
-  const valid = kg > 20 && kg < 400;
-
-  const log = () => {
-    if (!valid) return;
-    addWeightEntry({ id: crypto.randomUUID(), date: dayKey(new Date()), weightKg: kg });
-    setValue('');
-  };
-
-  const signed = (deltaKg: number) => `${deltaKg > 0 ? '+' : deltaKg < 0 ? '−' : '±'}${formatValue(Math.abs(deltaKg))}`;
-  const data = weightLog.map((e) => ({ label: date(e.date, { day: 'numeric', month: 'short' }), value: fromKg(e.weightKg) }));
-  const recent = [...weightLog].reverse().slice(0, 6);
-
-  return (
-    <section className="mt-8 border-t hairline pt-4">
-      <h2 className="text-[20px] font-semibold tracking-tight text-gray-900 dark:text-white">{t('weight.title')}</h2>
-      {latest ? (
-        <div className="mt-2 flex items-baseline gap-2">
-          <p className="text-[56px] font-semibold leading-none tracking-[-.03em] text-gray-900 dark:text-white">{formatValue(latest.weightKg)}</p>
-          <p className="text-[18px] text-gray-400">{unit}</p>
-          <p className="ml-auto text-right text-[13px] leading-snug text-gray-500 dark:text-gray-400">
-            {previous && (
-              <>
-                {t('weight.sinceDate', { delta: signed(latest.weightKg - previous.weightKg), date: date(previous.date, { day: 'numeric', month: 'short' }) })}
-                <br />
-              </>
-            )}
-            {first && first !== latest && previous !== first && t('weight.sinceDate', { delta: signed(latest.weightKg - first.weightKg), date: date(first.date, { day: 'numeric', month: 'short' }) })}
-          </p>
-        </div>
-      ) : (
-        <p className="mt-1 text-[14px] text-gray-500 dark:text-gray-400">{t('weight.empty')}</p>
-      )}
-
-      <div className="mt-4 flex items-center gap-3 rounded-2xl border hairline p-2 pl-4">
-        <label htmlFor="quick-weight" className="text-[13px] text-gray-500 dark:text-gray-400">
-          {t('weight.today')}
-        </label>
-        <input
-          id="quick-weight"
-          type="number"
-          inputMode="decimal"
-          step="0.1"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && log()}
-          placeholder={latest ? String(fromKg(latest.weightKg)) : '—'}
-          className="min-w-0 flex-1 bg-transparent text-right text-[18px] font-semibold text-gray-900 placeholder:font-normal placeholder:text-gray-300 focus:outline-none dark:text-white dark:placeholder:text-gray-600"
-        />
-        <span className="text-[13px] text-gray-400">{unit}</span>
-        <button onClick={log} disabled={!valid} className="pill-primary px-4 py-2 text-[14px]">
-          {t('weight.log')}
-        </button>
-      </div>
-
-      {data.length >= 2 && (
-        <div className="mt-5 h-[160px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke={colors.grid} />
-              <XAxis dataKey="label" tick={{ fill: colors.tick, fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
-              <YAxis
-                domain={['dataMin - 1', 'dataMax + 1']}
-                tick={{ fill: colors.tick, fontSize: 10 }}
-                tickFormatter={(v: number) => number(v, 0)}
-                axisLine={false}
-                tickLine={false}
-                width={40}
-              />
-              <Tooltip contentStyle={colors.tooltip} formatter={(v: number) => [`${number(v, 1)} ${unit}`, t('weight.title')]} />
-              <Line type="monotone" dataKey="value" stroke={colors.line} strokeWidth={2} dot={false} activeDot={{ r: 5, stroke: colors.surface, strokeWidth: 2 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {recent.length > 0 && (
-        <div className="mt-4">
-          <div className="grid grid-cols-[1fr_auto_72px_32px] cap">
-            <span>{t('common.date')}</span>
-            <span>{t('weight.change')}</span>
-            <span className="text-right">{unit}</span>
-            <span />
-          </div>
-          {recent.map((entry, i) => {
-            const before = recent[i + 1];
-            return (
-              <div key={entry.id} className="grid grid-cols-[1fr_auto_72px_32px] items-center border-b border-gray-100 py-2 text-[14px] dark:border-white/[0.06]">
-                <span className="text-gray-900 dark:text-white">{date(entry.date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                <span className="tabular-nums text-gray-500 dark:text-gray-400">{before ? signed(entry.weightKg - before.weightKg) : ''}</span>
-                <span className="text-right font-semibold tabular-nums text-gray-900 dark:text-white">{formatValue(entry.weightKg)}</span>
-                <button
-                  onClick={() => deleteWeightEntry(entry.id)}
-                  aria-label={t('weight.deleteEntry')}
-                  className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500 dark:text-gray-600 dark:hover:bg-red-500/10"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      <button onClick={() => setSheetOpen(true)} className="mt-3 text-[14px] font-medium text-indigo-600 dark:text-indigo-400">
-        {t('weight.logOtherDay')}
-      </button>
-      <LogWeightSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
-    </section>
   );
 }

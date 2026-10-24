@@ -1,21 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Moon, Play, Plus, Sparkles, Sun, UserCircle2 } from 'lucide-react';
+import { Moon, Play, Plus, Sun } from 'lucide-react';
 import { useWorkoutStore } from '../store/useWorkoutStore';
-import { useAuthStore } from '../store/useAuthStore';
-import { AuthModal } from '../components/AuthModal';
 import { MuscleMap } from '../components/MuscleMap';
 import { IconButton } from '../components/ui';
 import { useI18n } from '../i18n';
 import { computeStreak, dayKey, nextRoutine, startOfWeek } from '../utils/workout';
 
-/** "Today": the next session, this week at a glance, the coach and recent workouts. */
+/** "Today": the next session, this week at a glance, and recent workouts. */
 export function Home() {
   const { t, tp, date, weekdays, clock, duration } = useI18n();
   const navigate = useNavigate();
   const { workouts, templates, darkMode, toggleDarkMode } = useWorkoutStore();
-  const user = useAuthStore((s) => s.user);
-  const [authOpen, setAuthOpen] = useState(false);
 
   const today = new Date();
   const todayKey = dayKey(today);
@@ -43,12 +39,6 @@ export function Home() {
         <div className="-mr-2 flex items-center">
           <IconButton label={t('settings.darkMode')} onClick={toggleDarkMode}>
             {darkMode ? <Sun className="h-5 w-5" strokeWidth={1.75} /> : <Moon className="h-5 w-5" strokeWidth={1.75} />}
-          </IconButton>
-          <IconButton label={user ? t('today.account') : t('today.signIn')} onClick={() => setAuthOpen(true)}>
-            <span className="relative">
-              <UserCircle2 className="h-5 w-5" strokeWidth={1.75} />
-              {user && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-950" />}
-            </span>
           </IconButton>
         </div>
       </div>
@@ -141,18 +131,6 @@ export function Home() {
         </div>
       </section>
 
-      {/* Coach */}
-      <button onClick={() => navigate('/coach')} className="mt-5 flex w-full items-center justify-between border-t hairline pt-4 text-left">
-        <span className="flex items-center gap-3">
-          <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" strokeWidth={1.75} />
-          <span>
-            <span className="block text-[15px] font-medium text-gray-900 dark:text-white">{t('today.coach')}</span>
-            <span className="block text-[12px] text-gray-500 dark:text-gray-400">{t('today.coachSub')}</span>
-          </span>
-        </span>
-        <ArrowRight className="h-4 w-4 text-gray-400" />
-      </button>
-
       {/* Recent */}
       {recent.length > 0 && (
         <section className="mt-4 border-t hairline pt-4">
@@ -174,8 +152,6 @@ export function Home() {
       )}
 
       {recent[0] && <MuscleMap workout={recent[0]} />}
-
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
     </div>
   );
 }

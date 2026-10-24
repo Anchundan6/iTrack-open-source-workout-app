@@ -56,17 +56,3 @@ export interface RoutineBookmark {
   createdAt: string;
 }
 
-/** A piece of equipment the user owns, used to ground AI recommendations. */
-export interface EquipmentItem {
-  id: string;
-  type: string; // e.g. 'Dumbbells', 'Kettlebell', 'Barbell', 'Bodyweight'
-  maxWeight?: number; // kg — heaviest available for weighted equipment
-  notes?: string;
-}
-/** A single body-weight measurement, one per calendar day. */
-export interface WeightEntry {
-  id: string;
-  /** ISO date string of the measurement. */
-  date: string;
-  weightKg: number;
-}

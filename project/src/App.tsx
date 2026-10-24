@@ -6,12 +6,9 @@ import { Home } from './pages/Home';
 import { Workouts } from './pages/Workouts';
 import { Progress } from './pages/Progress';
 import { Settings } from './pages/Settings';
-import { Coach } from './pages/Coach';
 import { requestWakeLock, releaseWakeLock } from './utils/wakeLock';
-import { backupManager } from './utils/backupManager';
 import { notificationManager } from './utils/notificationManager';
 import { useWorkoutStore } from './store/useWorkoutStore';
-import { useAuthStore } from './store/useAuthStore';
 import { useI18n } from './i18n';
 import { unlockAudio } from './utils/sound';
 
@@ -42,15 +39,9 @@ function App() {
   useEffect(() => {
     // Request wake lock when app starts
     requestWakeLock();
-    
-    // Initialize auto-backup system
-    backupManager.init();
 
     // Initialize notifications
     notificationManager.init();
-
-    // Initialize auth / cloud sync (restores session, sets up auto-sync)
-    useAuthStore.getState().init();
 
     // Release wake lock when app is unmounted
     return () => {
@@ -84,7 +75,6 @@ function App() {
           <Route index element={<Home />} />
           <Route path="workouts" element={<Workouts />} />
           <Route path="progress" element={<Progress />} />
-          <Route path="coach" element={<Coach />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
