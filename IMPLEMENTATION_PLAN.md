@@ -52,11 +52,21 @@
 
 ## M3 — 动作库
 
-- 动作 schema（id/中文名/英文别名/器材/主次肌群/类别/步骤/提示/默认组次/替代动作/授权字段）
-- AI 生成 120+ 动作种子数据 → CI 校验脚本（唯一 ID/必填/引用完整/授权 manifest）
-- 中文/英文/别名搜索 + 器材/肌群筛选 + 组合筛选测试
-- 自定义动作 CRUD；无媒体占位；动作库损坏时的兜底（可读错误 + 仍可自定义动作开练）
-- 验收：断网搜索/筛选/加入训练可用；大虾抽查 10-20 个动作质量
+- ~~动作 schema（id/中文名/…）~~ → 内容不汉化（决策：英文内容 + 中文 UI），schema 去掉中文字段
+- AI 生成 120+ 动作种子数据 → CI 校验（唯一 ID/必填/引用完整）→ **已交付 133 个**
+- ~~中文/英文/别名搜索~~ → 英文名 + 别名搜索；器材/部位/肌群筛选 + 组合筛选测试
+- 自定义动作兜底（搜索无结果时可建自定义动作）；无媒体占位
+- 验收：搜索/筛选/加入训练可用；大虾抽查 10-20 个动作质量
+
+### M3 落地记录（2026-10-24）
+
+- 类型 `ExerciseDef`（types/workout.ts）：id/name/aliases/equipment/category/primary/secondary/unilateral/type/defaultReps/steps/tips/substitutions
+- 数据：`src/data/exercises.{push,pull,legs}.ts` → `exercises.ts` 汇总，133 个动作，覆盖 8 个部位 × 8 类器材
+- 校验：`utils/library.ts::validateLibrary`（唯一 id、kebab-case、肌群名合法、器材/部位枚举、defaultReps 范围、步骤非空、替代动作引用存在且不自指）+ `searchExercises`（别名匹配、多词全匹配、前缀排序、器材/部位/肌群/肌群组筛选）
+- UI：`components/ExercisePicker.tsx`（z-[70] 全屏层）：搜索框 + 三排筛选 chips（部位/器材/肌群组）+ 结果列表 → 详情页（目标肌群/默认组次/步骤/要点/可替代动作，替代动作可点击跳转）→ 加入模板；搜索无结果时提供「使用自定义动作」
+- 接入：模板编辑器新增「从动作库选择」，选中后自动预填名称/默认次数或秒数/类型/主肌群/步骤摘要
+- 测试：库结构 12 例 + 选择器渲染交互 5 例（jsdom + @testing-library/react），vitest 49/49
+- 新增 devDeps：jsdom、@testing-library/react（用于组件级验收；本机浏览器 MCP 点击不稳定）
 
 ## M4 — 渐进超负荷与打卡
 

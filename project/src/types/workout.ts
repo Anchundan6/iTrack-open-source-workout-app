@@ -41,6 +41,43 @@ export interface WorkoutTemplate {
  numberOfSets: number; // New field to store the number of sets
 }
 
+// --- Exercise library -------------------------------------------------------
+
+/** Equipment needed; drives the library's filter chips. */
+export type Equipment = 'barbell' | 'dumbbell' | 'kettlebell' | 'machine' | 'cable' | 'bodyweight' | 'band' | 'other';
+
+/** Broad body-part bucket used for filtering and grouping. */
+export type ExerciseCategory = 'chest' | 'back' | 'shoulders' | 'arms' | 'legs' | 'core' | 'fullBody' | 'cardio';
+
+/**
+ * One entry of the offline exercise library. Content stays in English (the
+ * library is not translated); only the surrounding UI is localized.
+ */
+export interface ExerciseDef {
+  /** Stable kebab-case id, referenced by `substitutions`. */
+  id: string;
+  name: string;
+  /** Alternative English names people search for ("pullups", "ohp"). */
+  aliases?: string[];
+  equipment: Equipment;
+  category: ExerciseCategory;
+  /** Canonical muscle names, matching `ALL_MUSCLES`. */
+  primary: string[];
+  secondary?: string[];
+  /** Trains one side at a time. */
+  unilateral?: boolean;
+  /** How the set is recorded by default. */
+  type: 'reps' | 'time';
+  /** Suggested reps, or seconds when `type` is 'time'. */
+  defaultReps: number;
+  /** Short English how-to, 3 steps. */
+  steps: string[];
+  /** Form cues shown under the name. */
+  tips?: string[];
+  /** Ids of exercises that can stand in for this one. */
+  substitutions?: string[];
+}
+
 /** Actual numbers logged for one expanded exercise instance (one set). */
 export interface SetPerformance {
   /** Stored in kg regardless of display unit. */

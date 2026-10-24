@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
-import { ChevronDown, ChevronUp, GripVertical, Minus, Plus, PlusCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, GripVertical, Minus, Plus, PlusCircle, Search } from 'lucide-react';
 import { EditorBar, FullScreen, Group, Row, Segmented } from './ui';
 import { MuscleSelect } from './MuscleSelect';
+import { ExercisePicker } from './ExercisePicker';
 import { useI18n } from '../i18n';
 import { useWorkoutStore } from '../store/useWorkoutStore';
-import type { Exercise, WorkoutTemplate } from '../types/workout';
+import type { Exercise, ExerciseDef, WorkoutTemplate } from '../types/workout';
 
 type DraftExercise = Omit<Exercise, 'sets'>;
 
@@ -34,6 +35,7 @@ export function RoutineEditor({ open, onClose, template }: RoutineEditorProps) {
  const [sets, setSets] = useState(3);
  const [exercises, setExercises] = useState<DraftExercise[]>([]);
  const [expanded, setExpanded] = useState<string | null>(null);
+ const [picker, setPicker] = useState(false);
 
  useEffect(() => {
  if (!open) return;
@@ -54,6 +56,29 @@ export function RoutineEditor({ open, onClose, template }: RoutineEditorProps) {
  };
 
  const remove = (id: string) => setExercises((list) => list.filter((e) => e.id !== id));
+
+ /** Add an exercise straight from the offline library, pre-filled. */
+ const addFromLibrary = (def: ExerciseDef) => {
+ const exercise: DraftExercise = {
+ id: crypto.randomUUID(),
+ name: def.name,
+ reps: def.defaultReps,
+ type: def.type,
+ videoUrl: '',
+ targetMuscles: [...def.primary],
+ description: def.steps.join(' '),
+ };
+ setExercises((list) => [...list, exercise]);
+ setExpanded(exercise.id);
+ setPicker(false);
+ };
+
+ const addCustom = (name: string) => {
+ const exercise: DraftExercise = { ...newExercise(), name };
+ setExercises((list) => [...list, exercise]);
+ setExpanded(exercise.id);
+ setPicker(false);
+ };
 
  const onDragEnd = (result: DropResult) => {
  if (!result.destination) return;
@@ -231,12 +256,18 @@ export function RoutineEditor({ open, onClose, template }: RoutineEditorProps) {
  )}
  </Droppable>
  </DragDropContext>
- <button onClick={add} className="flex w-full items-center gap-2 px-4 py-3 text-[15px] font-medium text-accent">
+ <button onClick={() => setPicker(true)} className="flex w-full items-center gap-2 px-4 py-3 text-[15px] font-medium text-accent">
+ <Search className="h-5 w-5" strokeWidth={1.75} />
+ {t('library.browse')}
+ </button>
+ <button onClick={add} className="flex w-full items-center gap-2 px-4 py-3 text-[15px] font-medium text-gray-900 dark:text-white">
  <PlusCircle className="h-5 w-5" strokeWidth={1.75} />
  {t('editor.addExercise')}
  </button>
  </Group>
  </div>
+
+ <ExercisePicker open={picker} onClose={() => setPicker(false)} onPick={addFromLibrary} onCustom={addCustom} />
  </FullScreen>
  );
 }
