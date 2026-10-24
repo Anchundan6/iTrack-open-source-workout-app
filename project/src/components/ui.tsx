@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Minus, Plus } from 'lucide-react';
 
 /** Close an overlay on Escape. */
 function useEscape(open: boolean, onClose: () => void) {
@@ -307,6 +307,38 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
  className={`absolute h-5 w-5 rounded-full bg-accent-contrast shadow-sm transition-transform ${checked ? 'translate-x-[21px]' : 'translate-x-[3px]'}`}
  />
  </button>
+ );
+}
+
+/** − / value / + control for a small integer range (weekly goal, sets…). */
+export function NumberStepper({
+ value,
+ min,
+ max,
+ onChange,
+ label,
+}: {
+ value: number;
+ min: number;
+ max: number;
+ onChange: (value: number) => void;
+ label: string;
+}) {
+ const step = (dir: 1 | -1) => onChange(Math.min(max, Math.max(min, value + dir)));
+ const btn =
+ 'flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition-colors active:bg-gray-200 disabled:opacity-40 dark:bg-white/[0.08] dark:text-gray-200 dark:active:bg-white/[0.16]';
+ return (
+ <div className="flex items-center gap-1">
+ <button type="button" aria-label={`${label} −`} disabled={value <= min} onClick={() => step(-1)} className={btn}>
+ <Minus className="h-4 w-4" strokeWidth={2} />
+ </button>
+ <span aria-live="polite" className="min-w-[2ch] text-center text-[15px] font-semibold tabular-nums text-gray-900 dark:text-white">
+ {value}
+ </span>
+ <button type="button" aria-label={`${label} +`} disabled={value >= max} onClick={() => step(1)} className={btn}>
+ <Plus className="h-4 w-4" strokeWidth={2} />
+ </button>
+ </div>
  );
 }
 

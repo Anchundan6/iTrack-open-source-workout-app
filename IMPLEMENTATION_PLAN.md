@@ -74,6 +74,19 @@
 - 打卡由完成日志派生（≥1 完成组才计）；每周目标默认 3 可配置；周目标连胜替代自然日 streak；编辑/删除训练后统计重算
 - 验收：规则边界测试全过；打卡防刷一致
 
+### M4 落地记录（2026-10-24）
+
+- 规则引擎 `utils/progression.ts`（纯函数，只读历史）：四分支 `baseline/addReps/addWeight/hold` + 五理由 `noHistory/missedTarget/hitTarget/stalled/bodyweight`
+  - 未达目标 → 同重量 +1 次；达标 → 加重（`nextWeight`，只在已是整片重量时吸附片重，永远只增不减）并把次数降到区间下限（目标 −2，最低 1）
+  - 停滞（上次比前一次更轻，或同重量次数没涨）→ 保持，先巩固；自重/无重量动作以次数为唯一杠杆
+  - 单位感知增量：kg 2.5、lb 2.268（=5 lb）；`Object.freeze` 用例证明不写回历史
+- UI：训练页输入卡新增「建议」条（理由 + 目标数字 + 「采用」按钮）。只预填输入框，**必须用户点「完成本组」才写入**本次日志；计时类动作不给建议
+- 打卡：`hasCompletedSet`（≥1 完成组，兼容旧数据用 `completedExerciseIds`）；`sessionsInWeek`（周一起算 7 天）；`computeGoalStreak`（连续达标周数，本周未达标不打断）
+  - 首页周条只点亮真正计数的日子；本周进度、结算页「本周第 N 次」、进展页「连续达标周数」全部改用同一派生口径
+- 周目标可配置：设置页「每周目标」± 步进（1–14，store 已 clamp），默认 3
+- 测试：`progression.test.ts` 20 例 + `checkin.test.ts` 18 例（含删除后重算、刷新后重算）+ `progressionUi.test.tsx` 5 例（理由可见、采用才生效、不写回历史）。vitest 92/92，eslint 0 错误，tsc + build 通过
+- 已知边界：建议基于「该模板同名动作同组号」的历史，跨模板不共享；导出/导入首版不做，换机数据仍无法迁移（风险已降级记录）
+
 ## M5 — Android 真机交付
 
 - 前置：安装 JDK 21（本机现 17）；按需补 Android Studio（SDK 已在 D:\devtools\android-sdk）

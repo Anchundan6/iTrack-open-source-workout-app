@@ -14,11 +14,17 @@ import {
   completionFrom,
   expandTemplate,
   groupBySet,
-  lastSetPerformance,
+  recentSetPerformances,
   sessionElapsed,
   setNumberOf,
   type SetPerformance,
 } from '../utils/workout';
+import {
+  DEFAULT_INCREMENT_KG,
+  LB_INCREMENT_KG,
+  suggestProgression,
+  type ProgressionSuggestion,
+} from '../utils/progression';
 import { playEnd, playTick, unlockAudio, vibrate } from '../utils/sound';
 import { enableWorkoutWakeLock, disableWorkoutWakeLock, requestWakeLock } from '../utils/wakeLock';
 
@@ -42,6 +48,7 @@ const COMMIT_INTERVAL_MS = 10_000;
 
 export function ActiveWorkout({ session, onFinish }: ActiveWorkoutProps) {
   const { t, tp, clock, muscle } = useI18n();
+  const { unit } = useUnits();
   const workouts = useWorkoutStore((s) => s.workouts);
   const patchSession = useWorkoutStore((s) => s.patchSession);
   const logSet = useWorkoutStore((s) => s.logSet);
@@ -60,8 +67,24 @@ export function ActiveWorkout({ session, onFinish }: ActiveWorkoutProps) {
   const { completedIds: completed, logs } = session;
   const currentId = session.currentId ?? exercises[0]?.id;
 
-  /** Display-only prefill from the last session of this routine. */
-  const lastPerf = (e: Exercise) => lastSetPerformance(workouts, template.id, baseName(e), setNumberOf(e));
+  /** Display-only prefill from the last sessions of this routine (newest first). */
+  const perfHistory = (e: Exercise) =>
+    recentSetPerformances(workouts, template.id, baseName(e), setNumberOf(e), 2);
+
+  /**
+   * What to try next, from the numbers logged so far — shown, never applied
+   * silently, and never written back into history.
+   */
+  const suggestionFor = (e: Exercise): ProgressionSuggestion => {
+    const logged = logs[e.id];
+    const history = perfHistory(e);
+    return suggestProgression({
+      last: logged ?? history[0],
+      previous: logged ? history[0] : history[1],
+      targetReps: e.reps,
+      incrementKg: unit === 'kg' ? DEFAULT_INCREMENT_KG : LB_INCREMENT_KG,
+    });
+  };
 
   const elapsed = Math.floor(sessionElapsed(session, now) / 1000);
   const done = completed.length;
@@ -261,12 +284,13 @@ export function ActiveWorkout({ session, onFinish }: ActiveWorkoutProps) {
  {exercise.type === 'time' ? (
  !isDone(exercise.id) && <TimedHold key={exercise.id} seconds={exercise.reps} onDone={() => toggle(exercise.id)} />
  ) : (
- <SetInput
- key={exercise.id}
- exercise={exercise}
- initial={logs[exercise.id] ?? lastPerf(exercise)}
- showLastHint={!logs[exercise.id]}
- done={isDone(exercise.id)}
+                  <SetInput
+                    key={exercise.id}
+                    exercise={exercise}
+                    initial={logs[exercise.id] ?? perfHistory(exercise)[0]}
+                    showLastHint={!logs[exercise.id]}
+                    suggestion={exercise.type === 'reps' ? suggestionFor(exercise) : undefined}
+                    done={isDone(exercise.id)}
  onSubmit={(perf) => {
  unlockAudio();
  logSet(exercise.id, perf);
@@ -380,23 +404,43 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
  * last session's numbers (display only) and are written back on submit.
  */
 function SetInput({
- exercise,
- initial,
- showLastHint,
- done,
- onSubmit,
+  exercise,
+  initial,
+  showLastHint,
+  suggestion,
+  done,
+  onSubmit,
 }: {
- exercise: Exercise;
- initial: SetPerformance | undefined;
- /** True when `initial` comes from last session rather than this one. */
- showLastHint: boolean;
- done: boolean;
- onSubmit: (perf: SetPerformance) => void;
+  exercise: Exercise;
+  initial: SetPerformance | undefined;
+  /** True when `initial` comes from last session rather than this one. */
+  showLastHint: boolean;
+  /** Next-step suggestion from the progression engine (reps exercises only). */
+  suggestion?: ProgressionSuggestion;
+  done: boolean;
+  onSubmit: (perf: SetPerformance) => void;
 }) {
- const { t } = useI18n();
- const { unit, fromKg, toKg } = useUnits();
- const [weight, setWeight] = useState(initial?.weightKg != null && initial.weightKg > 0 ? String(fromKg(initial.weightKg)) : '');
- const [reps, setReps] = useState(String(initial?.reps ?? exercise.reps));
+  const { t } = useI18n();
+  const { unit, fromKg, toKg, format } = useUnits();
+  const [weight, setWeight] = useState(initial?.weightKg != null && initial.weightKg > 0 ? String(fromKg(initial.weightKg)) : '');
+  const [reps, setReps] = useState(String(initial?.reps ?? exercise.reps));
+
+  /** The suggestion is advisory: it fills the inputs, the user still submits. */
+  const useSuggestion = () => {
+    if (!suggestion) return;
+    setWeight(suggestion.weightKg != null && suggestion.weightKg > 0 ? String(fromKg(suggestion.weightKg)) : '');
+    setReps(String(suggestion.reps));
+  };
+
+  const suggestionText = suggestion
+    ? t(`progression.${suggestion.reason}`, {
+        weight: initial?.weightKg != null && initial.weightKg > 0 ? format(initial.weightKg) : '—',
+        reps: initial?.reps ?? exercise.reps,
+        next: suggestion.reps,
+        nextReps: suggestion.reps,
+        nextWeight: suggestion.weightKg != null && suggestion.weightKg > 0 ? format(suggestion.weightKg) : '—',
+      })
+    : undefined;
 
  const weightStep = unit === 'kg' ? 2.5 : 5;
  const stepWeight = (dir: 1 | -1) => {
@@ -413,13 +457,33 @@ function SetInput({
  });
  };
 
- return (
- <div className="mt-4">
- {showLastHint && initial?.weightKg != null && initial.weightKg > 0 && (
- <p className="text-[12px] tabular-nums text-gray-400 dark:text-gray-500">
- {t('session.lastTime', { weight: `${fromKg(initial.weightKg)} ${unit}`, reps: initial.reps ?? exercise.reps })}
- </p>
- )}
+  return (
+    <div className="mt-4">
+      {showLastHint && initial?.weightKg != null && initial.weightKg > 0 && (
+        <p className="text-[12px] tabular-nums text-gray-400 dark:text-gray-500">
+          {t('session.lastTime', { weight: `${fromKg(initial.weightKg)} ${unit}`, reps: initial.reps ?? exercise.reps })}
+        </p>
+      )}
+      {suggestion && suggestionText && (
+        <div className="mt-2 flex items-center gap-3 rounded-xl bg-accent-soft px-3 py-2">
+          <p className="min-w-0 flex-1 text-[12px] leading-snug text-gray-700 dark:text-gray-200">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-accent">
+              {t('progression.suggest')}
+            </span>
+            {' · '}
+            {suggestionText}
+          </p>
+          {suggestion.changed && (
+            <button
+              type="button"
+              onClick={useSuggestion}
+              className="flex-shrink-0 rounded-full bg-accent px-3 py-1 text-[12px] font-semibold text-accent-contrast"
+            >
+              {t('progression.use')}
+            </button>
+          )}
+        </div>
+      )}
  <div className="mt-2 grid grid-cols-2 gap-3">
  <Stepper
  label={`${t('session.weight')} (${unit})`}

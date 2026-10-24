@@ -61,25 +61,42 @@ export function completionFrom(completed: number, total: number): number {
  * The most recent logged performance for one set of one exercise in a routine
  * — used to prefill the set inputs (display only, never written back).
  */
-export function lastSetPerformance(
+/**
+ * The `limit` most recent logged performances for one set of one exercise in
+ * a routine, newest first. Two entries are enough to tell progress from a
+ * stall, which is all the progression engine needs.
+ */
+export function recentSetPerformances(
  workouts: Workout[],
  templateId: string | undefined,
  exerciseName: string,
- setNumber: number
-): SetPerformance | undefined {
+ setNumber: number,
+ limit = 2
+): SetPerformance[] {
  const candidates = workouts
  .filter((w) => (templateId ? w.templateId === templateId : false))
  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+ const found: SetPerformance[] = [];
  for (const w of candidates) {
  const match = w.exercises.find(
  (e) => baseName(e) === exerciseName && setNumberOf(e) === setNumber && e.sets?.length > 0
  );
  if (match) {
  const s = match.sets[0];
- return { weightKg: s.weight, reps: s.reps };
+ found.push({ weightKg: s.weight, reps: s.reps });
+ if (found.length >= limit) break;
  }
  }
- return undefined;
+ return found;
+}
+
+export function lastSetPerformance(
+ workouts: Workout[],
+ templateId: string | undefined,
+ exerciseName: string,
+ setNumber: number
+): SetPerformance | undefined {
+ return recentSetPerformances(workouts, templateId, exerciseName, setNumber, 1)[0];
 }
 
 /** Total training volume in kg·reps, counting completed sets only. */
@@ -108,6 +125,50 @@ export function startOfWeek(value: Date): Date {
  const offset = (d.getDay() + 6) % 7; // Monday = 0
  d.setDate(d.getDate() - offset);
  return d;
+}
+
+// --- Check-ins ------------------------------------------------------------
+
+/**
+ * Whether a session counts: at least one set was ticked off (or logged).
+ * Starting a workout and quitting doesn't check you in.
+ */
+export function hasCompletedSet(workout: Workout): boolean {
+ if (workout.exercises?.some((e) => e.sets?.some((s) => s.completed))) return true;
+ // Workouts recorded before per-set tracking only carry the ticked ids.
+ return (workout.completedExerciseIds?.length ?? 0) > 0;
+}
+
+/** Qualifying sessions in the seven days starting at `monday`. */
+export function sessionsInWeek(workouts: Workout[], monday: Date): number {
+ const start = new Date(monday);
+ start.setHours(0, 0, 0, 0);
+ const end = new Date(start);
+ end.setDate(end.getDate() + 7);
+ return workouts.filter((w) => {
+ const d = new Date(w.date);
+ return d >= start && d < end && hasCompletedSet(w);
+ }).length;
+}
+
+/**
+ * Consecutive weeks that hit the weekly goal, counting back from today. The
+ * week in progress doesn't break the streak until it's over.
+ */
+export function computeGoalStreak(workouts: Workout[], goal: number, today = new Date()): number {
+ const target = Math.max(1, Math.round(goal || 1));
+ const thisMonday = startOfWeek(today);
+ let streak = 0;
+ for (let i = 0; i < 52; i++) {
+ const monday = new Date(thisMonday);
+ monday.setDate(monday.getDate() - i * 7);
+ if (sessionsInWeek(workouts, monday) >= target) {
+ streak++;
+ } else if (i > 0) {
+ break;
+ }
+ }
+ return streak;
 }
 
 /**

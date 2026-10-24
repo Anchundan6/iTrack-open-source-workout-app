@@ -5,7 +5,7 @@ import { useWorkoutStore } from '../store/useWorkoutStore';
 import { MuscleMap } from '../components/MuscleMap';
 import { IconButton } from '../components/ui';
 import { useI18n } from '../i18n';
-import { computeStreak, dayKey, nextRoutine, startOfWeek } from '../utils/workout';
+import { computeGoalStreak, dayKey, hasCompletedSet, nextRoutine, startOfWeek } from '../utils/workout';
 
 /** "Today": the next session, this week at a glance, and recent workouts. */
 export function Home() {
@@ -17,18 +17,20 @@ export function Home() {
  const todayKey = dayKey(today);
  const next = nextRoutine(templates, workouts);
 
+ // A day only lights up when a session on it actually counts (≥1 set done).
  const week = useMemo(() => {
  const monday = startOfWeek(new Date());
  return Array.from({ length: 7 }, (_, i) => {
  const day = new Date(monday);
  day.setDate(monday.getDate() + i);
  const key = dayKey(day);
- const best = workouts.filter((w) => dayKey(w.date) === key).reduce<number | null>((max, w) => Math.max(max ?? 0, w.completionPercentage), null);
- return { key, best };
+ const counted = workouts.filter((w) => dayKey(w.date) === key && hasCompletedSet(w));
+ const best = counted.reduce<number | null>((max, w) => Math.max(max ?? 0, w.completionPercentage), null);
+ return { key, best, sessions: counted.length };
  });
  }, [workouts]);
- const sessionsThisWeek = week.reduce((n, d) => n + (d.best !== null ? 1 : 0), 0);
- const streak = computeStreak(workouts);
+ const sessionsThisWeek = week.reduce((n, d) => n + d.sessions, 0);
+ const goalStreak = computeGoalStreak(workouts, weeklyGoal);
  const recent = [...workouts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 2);
  const labels = weekdays('narrow');
 
@@ -119,7 +121,7 @@ className="mt-5 flex w-full items-center justify-between gap-3 rounded-2xl borde
  <p className="cap">{t('today.thisWeek')}</p>
  <span className="text-[12px] text-gray-400 dark:text-gray-500">
  {t('today.weekProgress', { done: sessionsThisWeek, goal: weeklyGoal })}
- {streak > 0 ? ` · ${tp('today.streak', streak)}` : ''}
+ {goalStreak > 0 ? ` · ${tp('today.goalStreak', goalStreak)}` : ''}
  </span>
  </div>
  <div className="mt-3 flex items-end justify-between">

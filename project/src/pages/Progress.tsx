@@ -6,7 +6,7 @@ import { PageTitle } from '../components/ui';
 import { RoutineNotes } from '../components/RoutineNotes';
 import { useI18n } from '../i18n';
 import type { Workout, WorkoutTemplate } from '../types/workout';
-import { computeStreak, latestWorkout, startOfWeek, workoutsForTemplate } from '../utils/workout';
+import { computeGoalStreak, latestWorkout, startOfWeek, workoutsForTemplate } from '../utils/workout';
 
 /** Latest result per routine name within a period, averaged. */
 function averageLatestCompletion(list: Workout[]) {
@@ -40,7 +40,7 @@ function useChartColors() {
 
 export function Progress() {
  const { t, tp, lang, date, capitalize, weekdays, duration } = useI18n();
- const { workouts } = useWorkoutStore();
+ const { workouts, weeklyGoal } = useWorkoutStore();
  const colors = useChartColors();
 
  const stats = useMemo(() => {
@@ -77,7 +77,7 @@ export function Progress() {
 
  return {
  thisMonth: thisMonth.length,
- streak: computeStreak(workouts),
+ goalStreak: computeGoalStreak(workouts, weeklyGoal),
  avgCompletion,
  avgDuration,
  weekly,
@@ -85,7 +85,7 @@ export function Progress() {
  byWeekday,
  topDay,
  };
- }, [workouts]);
+ }, [workouts, weeklyGoal]);
 
  const longDays = weekdays('long');
  const narrowDays = weekdays('narrow');
@@ -112,7 +112,7 @@ export function Progress() {
  <>
  <div className="mt-3 grid grid-cols-2 border-y hairline">
  <Stat value={String(stats.thisMonth)} label={tp('progress.workoutsThisMonth', stats.thisMonth)} />
- <Stat value={String(stats.streak)} label={tp('progress.dayStreak', stats.streak)} divider />
+ <Stat value={String(stats.goalStreak)} label={tp('progress.goalStreak', stats.goalStreak)} divider />
  <Stat value={`${Math.round(stats.avgCompletion)}%`} label={t('progress.avgCompletion')} top />
  <Stat value={duration(stats.avgDuration)} label={t('progress.avgDuration')} divider top />
  </div>

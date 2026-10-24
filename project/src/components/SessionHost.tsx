@@ -6,7 +6,7 @@ import { WorkoutSummary } from './WorkoutSummary';
 import { Dialog } from './ui';
 import { useI18n } from '../i18n';
 import type { Workout } from '../types/workout';
-import { completionFrom, expandTemplate, sessionElapsed, startOfWeek } from '../utils/workout';
+import { completionFrom, expandTemplate, sessionElapsed, sessionsInWeek, startOfWeek } from '../utils/workout';
 
 /**
  * Owns the in-progress session for the whole app: the resume prompt after a
@@ -40,7 +40,8 @@ export function SessionHost() {
         completedExerciseIds: result.completedExerciseIds,
       };
       const monday = startOfWeek(new Date());
-      const weekCount = workouts.filter((w) => new Date(w.date) >= monday).length + 1;
+      // +1 for the session being saved right now (it counts once it's stored).
+      const weekCount = sessionsInWeek(workouts, monday) + 1;
       addWorkout(workout);
       setSummary({ workout, weekCount });
     }

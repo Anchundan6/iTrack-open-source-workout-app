@@ -1,1 +1,4 @@
 node_modules/
+
+# TypeScript incremental build info
+*.tsbuildinfo

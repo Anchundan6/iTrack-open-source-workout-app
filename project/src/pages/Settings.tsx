@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Play, Smartphone } from 'lucide-react';
 import { useWorkoutStore } from '../store/useWorkoutStore';
 import { NotificationSettingsModal, DAY_IDS } from '../components/NotificationSettingsModal';
-import { Group, OptionRow, PageTitle, Row, Segmented, Sheet, Switch } from '../components/ui';
+import { Group, NumberStepper, OptionRow, PageTitle, Row, Segmented, Sheet, Switch } from '../components/ui';
 import { useI18n, resolveLang, systemLang, type LanguagePref } from '../i18n';
 import { previewSound, type RestSound } from '../utils/sound';
 
@@ -24,8 +24,10 @@ export function Settings() {
  setWeightUnit,
  restSound,
  setRestSound,
- restVibrate,
- setRestVibrate,
+  restVibrate,
+  setRestVibrate,
+  weeklyGoal,
+  setWeeklyGoal,
  } = useWorkoutStore();
 
  const [sheet, setSheet] = useState<null | 'language' | 'sound' | 'reminders'>(null);
@@ -67,6 +69,19 @@ export function Settings() {
  </Group>
 
  <Group label={t('settings.workout')} footnote={t('settings.soundFootnote')}>
+ <Row
+ label={t('settings.weeklyGoal')}
+ description={t('settings.weeklyGoalHint')}
+ right={
+ <NumberStepper
+ value={weeklyGoal}
+ min={1}
+ max={14}
+ onChange={setWeeklyGoal}
+ label={t('settings.weeklyGoal')}
+ />
+ }
+ />
  <Row label={t('settings.reminders')} value={remindersSummary} onClick={() => setSheet('reminders')} />
  <Row label={t('settings.restSound')} value={soundLabel(restSound)} onClick={() => setSheet('sound')} />
  <Row label={t('settings.vibrate')} right={<Switch checked={restVibrate} onChange={setRestVibrate} label={t('settings.vibrate')} />} />
