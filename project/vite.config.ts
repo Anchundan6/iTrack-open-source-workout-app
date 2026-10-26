@@ -9,10 +9,10 @@ export default defineConfig({
  VitePWA({
  registerType: 'autoUpdate',
  manifest: {
- name: 'iTrack - Workout Tracker',
- short_name: 'iTrack',
- description: 'Track and monitor your workout progress with iTrack',
- theme_color: '#4f46e5',
+ name: 'Fitness Log · 力量训练记录',
+ short_name: 'Fitness Log',
+ description: '本地优先的力量训练记录、渐进超负荷建议与每周打卡',
+ theme_color: '#ffffff',
  },
  workbox: {
  globPatterns: ['**/*.{js,css,html,ico,png,svg}']

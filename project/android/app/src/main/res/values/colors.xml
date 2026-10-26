@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Monochrome shell: the web layer owns all colour, Android only needs
+         black, white and the greys the system bars blend into. -->
+    <color name="colorPrimary">#000000</color>
+    <color name="colorPrimaryDark">#000000</color>
+    <color name="colorAccent">#000000</color>
+    <color name="splash_background">#FFFFFF</color>
+    <color name="window_background">#FFFFFF</color>
+</resources>

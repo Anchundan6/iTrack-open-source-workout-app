@@ -5,7 +5,17 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  {
+    // Build output, generated Android shell assets and Capacitor bridges are not ours to lint.
+    ignores: [
+      'dist',
+      'android',
+      '**/build/**',
+      'ios',
+      'public/sw.js',
+      'public/workbox-*.js',
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

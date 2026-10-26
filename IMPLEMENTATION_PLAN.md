@@ -87,12 +87,44 @@
 - 测试：`progression.test.ts` 20 例 + `checkin.test.ts` 18 例（含删除后重算、刷新后重算）+ `progressionUi.test.tsx` 5 例（理由可见、采用才生效、不写回历史）。vitest 92/92，eslint 0 错误，tsc + build 通过
 - 已知边界：建议基于「该模板同名动作同组号」的历史，跨模板不共享；导出/导入首版不做，换机数据仍无法迁移（风险已降级记录）
 
-## M5 — Android 真机交付
+## M5 — Android 真机交付（已完成，commit 见 git log）
 
-- 前置：安装 JDK 21（本机现 17）；按需补 Android Studio（SDK 已在 D:\devtools\android-sdk）
-- 改 applicationId / 应用名 / 图标 / 启动屏；release 签名；`npx cap sync` + assembleRelease
-- 真机验收：离线训练全流程、锁屏恢复、重装前后导出导入、横竖屏、低内存
-- 终点：内部 APK 自用（不上架）
+**环境**
+- Temurin JDK 21.0.9+10 便携版 → `D:\devtools\jdk21\jdk-21.0.9+10`（Capacitor 7 的 `capacitor.build.gradle` 要求 `VERSION_21`，原机 JDK 17 编不过）
+- Android SDK 已在 `D:\devtools\android-sdk`（platforms 只有 android-36/37，AGP 8.7.3 自动补下 android-35）
+- Gradle wrapper 8.11.1 首次构建自动下载，之后增量 30s 左右
+
+**应用身份**
+- applicationId / namespace：`com.fitnesslog.app`（原 `com.iTrack.app`），`MainActivity` 迁到 `com/fitnesslog/app`
+- 应用名：`Fitness Log`（strings.xml / capacitor.config / manifest.json / index.html / vite PWA 全部统一）
+- versionCode 1 / versionName 1.0.0；minSdk 23、targetSdk 35
+- 权限只留必要项：INTERNET、POST_NOTIFICATIONS、SCHEDULE_EXACT_ALARM、RECEIVE_BOOT_COMPLETED、WAKE_LOCK、VIBRATE；**删掉读写外部存储**（导出功能已砍，WebView/localStorage 不需要）
+
+**图标与启动屏（纯黑白）**
+- 图形：黑底 + 三根递增圆角白柱（渐进超负荷的几何化），`tools/gen_icons.py` 一次性生成
+- 全密度 legacy `ic_launcher(.round).webp` 48/72/96/144/192 + 自适应前景 108/162/216/324/432
+- 自适应背景改为纯黑矢量；新增 `drawable/ic_launcher_monochrome.xml` + `mipmap-anydpi-v33` 支持 Android 13 主题图标
+- 启动屏：白底 + 黑色柱状 `drawable/splash_logo.xml`，主题走 `windowSplashScreenBackground/AnimatedIcon` + `postSplashScreenTheme`
+- 补齐缺失的 `values/colors.xml`（模板里 `@color/colorPrimary` 一直是悬空引用，AGP 会直接报错）
+
+**签名与产物**
+- `android/keystore/fitnesslog-release.jks`（RSA 2048，30 年），口令在 `android/keystore.properties`，二者均 gitignore
+- `app/build.gradle` 读 `keystore.properties` 装配 `signingConfigs.release`；文件不存在时仍能出未签名包
+- 产物：`release/FitnessLog-1.0.0-release.apk`（3.54 MB，v1+v2 签名，证书 CN=Fitness Log）
+
+**踩坑**
+- `npx cap sync android` 被沙箱 safe-delete 的批量删除阈值挡住（54 个文件 > 50），改用 `npx cap copy android` 只同步 Web 资源
+- 遗留的 `capacitor-filesystem` 模块声明（M0 已从 npm 移除，但 `capacitor.settings.gradle` / `capacitor.build.gradle` 未重新生成）导致 `No matching variant` 构建失败 → 手工删掉这两处引用
+
+**真机验收清单（待用户执行）**
+1. 安装：`adb install -r release/FitnessLog-1.0.0-release.apk`，桌面图标应为黑底白柱
+2. 冷启动：白底启动屏 → 首页，无闪白/黑屏跳变
+3. 离线：断网/飞行模式走完「选模板 → 记录 → 完成」，进度与连胜正常
+4. 锁屏恢复：训练中锁屏 5 分钟以上，回到 App 计时应继续累计而非跳变（`MAX_UNCOMMITTED_MS` 封顶 5 分钟）
+5. 杀进程恢复：训练中从最近任务划掉，重开应弹「继续/放弃」
+6. 通知：休息计时结束的本地通知与震动（Android 13+ 首次需授权通知权限）
+7. 横竖屏切换、深色模式切换后颜色仍为黑白
+8. 卸载重装：数据会清空（首版无导出导入，属已知边界）；`allowBackup=true` 依赖系统云备份，不保证
 
 ## M6 — Beta（大虾自用 2-3 周）
 

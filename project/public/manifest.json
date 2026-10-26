@@ -1,9 +1,9 @@
 {
   
-  "id": "fittrack-workout-tracker",
-  "name": "iTrack workout tracker",
-  "short_name": "iTrack",
-  "description": "Track and monitor your workout progress with iTrack",
+  "id": "fitness-log",
+  "name": "Fitness Log · 力量训练记录",
+  "short_name": "Fitness Log",
+  "description": "本地优先的力量训练记录、渐进超负荷建议与每周打卡",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

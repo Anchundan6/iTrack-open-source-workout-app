@@ -2,3 +2,14 @@ node_modules/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Android signing material — never commit
+project/android/keystore/
+project/android/keystore.properties
+*.jks
+*.keystore
+
+# Generated launcher/splash assets
+project/android/app/src/main/assets/public/
+release/
+build-log.txt

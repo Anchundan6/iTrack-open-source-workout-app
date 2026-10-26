@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer (Android 13+): solid white shape, tinted by the launcher. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M26.9,58.9 H36.1 A3,3 0 0 1 39.1,61.9 V79.3 A3,3 0 0 1 36.1,82.3 H26.9 A3,3 0 0 1 23.9,79.3 V61.9 A3,3 0 0 1 26.9,58.9 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49.4,42.3 H58.6 A3,3 0 0 1 61.6,45.3 V79.3 A3,3 0 0 1 58.6,82.3 H49.4 A3,3 0 0 1 46.4,79.3 V45.3 A3,3 0 0 1 49.4,42.3 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M71.9,25.7 H81.1 A3,3 0 0 1 84.1,28.7 V79.3 A3,3 0 0 1 81.1,82.3 H71.9 A3,3 0 0 1 68.9,79.3 V28.7 A3,3 0 0 1 71.9,25.7 Z" />
+</vector>
